@@ -1,36 +1,32 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# URL Shortener
 
-## Getting Started
+Aplikasi web perpendek URL berbasis Next.js (App Router). Masukkan URL panjang di halaman `/`, dapatkan short link, buka short link untuk diarahkan ke tujuan.
 
-First, run the development server:
+## Menjalankan
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Buka [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Build produksi
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build   # build + typecheck
+npm run start   # serve hasil build
+```
 
-## Learn More
+## API
 
-To learn more about Next.js, take a look at the following resources:
+- `POST /api/shorten` — body `{"url": "https://..."}` → `201` `{code, shortUrl}`; URL invalid → `400`.
+- `GET /<code>` — redirect `307` ke URL tujuan; kode tidak ada → `404`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Konfigurasi
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `BASE_URL` (env, opsional) — base URL untuk shortUrl yang dihasilkan. Default: origin dari request.
 
-## Deploy on Vercel
+## Penyimpanan
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Data disimpan sebagai file JSON di `data/links.json` (bukan database; file ini digitignore). Cocok untuk volume rendah / lokal. Untuk produksi dengan traffic, ganti penyimpanan dengan SQLite/database — file JSON rawan race pada tulis bersamaan, dan `data/` tidak persisten di Vercel.
