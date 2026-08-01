@@ -1,4 +1,4 @@
-# URL Shortener
+# Shorty
 
 Aplikasi web perpendek URL berbasis Next.js (App Router). Masukkan URL panjang di halaman `/`, dapatkan short link, buka short link untuk diarahkan ke tujuan.
 
