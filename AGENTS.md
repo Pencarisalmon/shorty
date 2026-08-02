@@ -10,16 +10,20 @@ URL shortener app: form at `/`, `POST /api/shorten` creates short links, `GET /<
 
 ## Commands
 
-- `npm run dev` — dev server (Turbopack)
-- `npm run build` — production build; also runs the typecheck (no separate `typecheck` script)
-- `npm run lint` — plain `eslint` (flat config `eslint.config.mjs`)
-- No tests, no CI. Manual verification: build, then `npm run start` + curl POST/GET as in dev workflow.
+- Package manager is **pnpm** (only `pnpm-lock.yaml`; `package-lock.json` was deleted).
+- `pnpm dev` — dev server (Turbopack)
+- `pnpm build` — production build; also runs the typecheck (no separate `typecheck` script)
+- `pnpm lint` — plain `eslint` (flat config `eslint.config.mjs`)
+- `pnpm db:generate` / `pnpm db:migrate` — drizzle-kit; schema changes: edit `lib/schema.ts` → generate → migrate
+- No tests, no CI. Manual verification: build, then `pnpm start` + curl POST/GET.
 
 ## Architecture
 
-- Storage: `lib/store.ts` — sync fs JSON file at `data/links.json` (gitignored). **Not** SQLite/DB; single-file read+write races under concurrent writes — keep writes low-volume or upgrade to SQLite.
-- `lib/store.ts` exports `createShort(url)` and `getUrl(code)`; `genCode()` = 6-char base62 from `crypto.randomBytes` with collision retry. URL validation lives in the API route, not the store.
+- **Storage: Neon Postgres via Drizzle ORM** (neon-http driver), not a JSON file anymore (migrated in commit a12325f). `lib/db.ts` = `drizzle(neon(process.env.DATABASE_URL!))`; `.env` (gitignored) must contain `DATABASE_URL`.
+- `lib/schema.ts` — `links` table: `code` text PK, `url` text, `createdAt` timestamptz. `drizzle/` migrations are committed.
+- `lib/store.ts` exports async `createShort(url)` / `getUrl(code)`. `genCode()` = 6-char base62 with alphabet `0-9A-Z-a-z` (order: digits, uppercase, lowercase), inserts with `onConflictDoNothing` + 5 retries.
 - Route handlers: `app/api/shorten/route.ts` (POST → 201 `{code, shortUrl}` / 400), `app/[code]/route.ts` (GET → 307 `NextResponse.redirect` / 404).
 - `params` is a **Promise** in route handlers (Next 15+): `await params` before use.
 - `shortUrl` base comes from `process.env.BASE_URL ?? request origin`.
 - No `src/` dir; code lives in `app/` + `lib/`. Import alias `@/*` → repo root. `CLAUDE.md` is just a pointer to this file.
+- `opencode.json` enables the remote Neon MCP server (mcp.neon.tech).

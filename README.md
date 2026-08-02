@@ -2,11 +2,13 @@
 
 Aplikasi web perpendek URL berbasis Next.js (App Router). Masukkan URL panjang di halaman `/`, dapatkan short link, buka short link untuk diarahkan ke tujuan.
 
-## Menjalankan
+## Setup
 
 ```bash
-npm install
-npm run dev
+pnpm install
+# buat file .env berisi DATABASE_URL (connection string Neon Postgres)
+pnpm db:migrate        # jalankan migration yang ada di drizzle/
+pnpm dev
 ```
 
 Buka [http://localhost:3000](http://localhost:3000).
@@ -14,8 +16,8 @@ Buka [http://localhost:3000](http://localhost:3000).
 ## Build produksi
 
 ```bash
-npm run build   # build + typecheck
-npm run start   # serve hasil build
+pnpm build   # build + typecheck
+pnpm start   # serve hasil build
 ```
 
 ## API
@@ -25,8 +27,14 @@ npm run start   # serve hasil build
 
 ## Konfigurasi
 
+- `DATABASE_URL` (env, wajib) — connection string Neon Postgres.
 - `BASE_URL` (env, opsional) — base URL untuk shortUrl yang dihasilkan. Default: origin dari request.
 
 ## Penyimpanan
 
-Data disimpan sebagai file JSON di `data/links.json` (bukan database; file ini digitignore). Cocok untuk volume rendah / lokal. Untuk produksi dengan traffic, ganti penyimpanan dengan SQLite/database — file JSON rawan race pada tulis bersamaan, dan `data/` tidak persisten di Vercel.
+Data disimpan di **Neon Postgres** lewat Drizzle ORM (driver `neon-http`). Schema ada di `lib/schema.ts`, migration di `drizzle/` (di-commit). Perubahan schema:
+
+```bash
+pnpm db:generate   # generate migration dari lib/schema.ts
+pnpm db:migrate    # terapkan ke database
+```
