@@ -6,7 +6,7 @@ export async function GET(
   { params }: { params: Promise<{ code: string }> }
 ) {
   const { code } = await params;
-  const link = getUrl(code);
+  const link = await getUrl(code);
   if (!link) {
     return NextResponse.json({ error: "Link tidak ditemukan" }, { status: 404 });
   }

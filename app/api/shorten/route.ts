@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "URL harus http/https" }, { status: 400 });
   }
 
-  const link = createShort(url.toString());
+  const link = await createShort(url.toString());
   const base = process.env.BASE_URL ?? new URL(request.url).origin;
   return NextResponse.json(
     { code: link.code, shortUrl: `${base}/${link.code}` },

@@ -1,24 +1,7 @@
-import { mkdirSync, readFileSync, writeFileSync } from "fs";
+import { eq } from "drizzle-orm";
 import { randomBytes } from "crypto";
-import { join } from "path";
-
-type Link = { code: string; url: string; createdAt: string };
-
-const DB_FILE = join(process.cwd(), "data", "links.json");
-
-// ponytail: JSON file storage; concurrent writes race, swap to SQLite if traffic matters
-function readAll(): Record<string, Link> {
-  try {
-    return JSON.parse(readFileSync(DB_FILE, "utf8"));
-  } catch {
-    return {};
-  }
-}
-
-function writeAll(links: Record<string, Link>) {
-  mkdirSync(join(process.cwd(), "data"), { recursive: true });
-  writeFileSync(DB_FILE, JSON.stringify(links, null, 2));
-}
+import { db } from "@/lib/db";
+import { links, type Link } from "@/lib/schema";
 
 const ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
@@ -29,16 +12,23 @@ function genCode(): string {
   return code;
 }
 
-export function createShort(url: string): { code: string; url: string; createdAt: string } {
-  const links = readAll();
-  let code = genCode();
-  while (links[code]) code = genCode();
-  const link: Link = { code, url, createdAt: new Date().toISOString() };
-  links[code] = link;
-  writeAll(links);
-  return link;
+// ponytail: retry loop as unique-violation backstop; 62^6 codes, collisions near-impossible
+const MAX_RETRIES = 5;
+
+export async function createShort(url: string): Promise<Link> {
+  for (let i = 0; i < MAX_RETRIES; i++) {
+    const code = genCode();
+    const inserted = await db
+      .insert(links)
+      .values({ code, url })
+      .onConflictDoNothing()
+      .returning();
+    if (inserted[0]) return inserted[0];
+  }
+  throw new Error("Gagal generate kode unik");
 }
 
-export function getUrl(code: string): Link | undefined {
-  return readAll()[code];
+export async function getUrl(code: string): Promise<Link | undefined> {
+  const rows = await db.select().from(links).where(eq(links.code, code));
+  return rows[0];
 }
