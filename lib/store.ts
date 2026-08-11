@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import { db } from "@/lib/db";
 import { links, type Link } from "@/lib/schema";
@@ -31,4 +31,10 @@ export async function createShort(url: string): Promise<Link> {
 export async function getUrl(code: string): Promise<Link | undefined> {
   const rows = await db.select().from(links).where(eq(links.code, code));
   return rows[0];
+}
+
+const LIST_LIMIT = 10;
+
+export async function listLinks(): Promise<Link[]> {
+  return db.select().from(links).orderBy(desc(links.createdAt)).limit(LIST_LIMIT);
 }
