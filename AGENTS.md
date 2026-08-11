@@ -27,3 +27,17 @@ URL shortener app: form at `/`, `POST /api/shorten` creates short links, `GET /<
 - `shortUrl` base comes from `process.env.BASE_URL ?? request origin`.
 - No `src/` dir; code lives in `app/` + `lib/`. Import alias `@/*` → repo root. `CLAUDE.md` is just a pointer to this file.
 - `opencode.json` enables the remote Neon MCP server (mcp.neon.tech).
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live as GitHub issues (repo: Pencarisalmon/shorty); use the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Five canonical roles; label strings equal to role names. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
