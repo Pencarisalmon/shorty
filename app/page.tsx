@@ -1,38 +1,56 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import styles from "./page.module.css";
-
-type LinkRow = {
-  code: string;
-  url: string;
-  shortUrl: string;
-  createdAt: string;
-};
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  PrototypeSwitcher,
+  VariantA,
+  VariantB,
+  VariantC,
+  type LinkRow,
+  type ShortyProps,
+} from "./design-prototypes";
 
 export default function Home() {
+  return (
+    <Suspense fallback={null}>
+      <HomeShell />
+    </Suspense>
+  );
+}
+
+function HomeShell() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [key, setKey] = useState(() => searchParams.get("variant") ?? "A");
+
   const [url, setUrl] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [validation, setValidation] = useState<string | null>(null);
   const [shortUrl, setShortUrl] = useState("");
-  const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
   const [links, setLinks] = useState<LinkRow[] | null>(null);
+  const [linksLoading, setLinksLoading] = useState(true);
   const [linksError, setLinksError] = useState("");
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function loadLinks(): Promise<LinkRow[] | null> {
     try {
       const res = await fetch("/api/links");
       if (!res.ok) throw new Error("fetch failed");
-      return (await res.json()).links;
+      return (await res.json()).links as LinkRow[];
     } catch {
       return null;
     }
   }
 
   function applyLinks(rows: LinkRow[] | null) {
+    setLinksLoading(false);
     if (rows) {
       setLinks(rows);
       setLinksError("");
     } else {
-      setLinksError("Gagal memuat daftar tautan");
+      setLinksError("Couldn't load recent links.");
     }
   }
 
@@ -46,90 +64,82 @@ export default function Home() {
     };
   }, []);
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    setShortUrl("");
-    const res = await fetch("/api/shorten", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error ?? "Terjadi kesalahan");
-      return;
-    }
-    setShortUrl(data.shortUrl);
-    applyLinks(await loadLinks());
+  const onShorten = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (submitting) return;
+      setValidation(null);
+      setShortUrl("");
+      setCopied(false);
+      const target = url.trim();
+      if (!target) {
+        setValidation("Paste a URL to shorten it.");
+        return;
+      }
+      let parsed: URL | null = null;
+      try {
+        parsed = new URL(target);
+      } catch {
+        parsed = null;
+      }
+      if (!parsed || !/^https?:$/.test(parsed.protocol)) {
+        setValidation("That doesn't look like a valid link — it should start with http:// or https://.");
+        return;
+      }
+      setSubmitting(true);
+      try {
+        const res = await fetch("/api/shorten", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: target }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setValidation(data.error ?? "Something went wrong — please try again.");
+          return;
+        }
+        setShortUrl(data.shortUrl as string);
+        applyLinks(await loadLinks());
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [url, submitting]
+  );
+
+  const onCopy = useCallback(() => {
+    if (!shortUrl) return;
+    navigator.clipboard?.writeText(shortUrl);
+    setCopied(true);
+    if (copyTimer.current) clearTimeout(copyTimer.current);
+    copyTimer.current = setTimeout(() => setCopied(false), 2000);
+  }, [shortUrl]);
+
+  function changeVariant(nextKey: string) {
+    setKey(nextKey);
+    router.replace(`/?variant=${nextKey}`);
   }
 
+  const props: ShortyProps = {
+    url,
+    onUrl: setUrl,
+    submitting,
+    validation,
+    shortUrl,
+    copied,
+    onCopy,
+    onShorten,
+    links,
+    linksLoading,
+    linksError,
+  };
+
+  const Variant = key === "B" ? VariantB : key === "C" ? VariantC : VariantA;
+
   return (
-    <main className={styles.main}>
-      <h1>URL Shortener</h1>
-      <form onSubmit={onSubmit} className={styles.form}>
-        <input
-          type="url"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://contoh.com/halaman-panjang"
-          required
-          className={styles.input}
-        />
-        <button type="submit" className={styles.button}>
-          Shorten
-        </button>
-      </form>
-      {error && <p className={styles.error}>{error}</p>}
-      {shortUrl && (
-        <p className={styles.result}>
-          <a href={shortUrl} target="_blank" rel="noopener noreferrer">
-            {shortUrl}
-          </a>
-          <button
-            onClick={() => navigator.clipboard.writeText(shortUrl)}
-            className={styles.copy}
-          >
-            Salin
-          </button>
-        </p>
-      )}
-      <section className={styles.list} aria-label="Tautan terbaru">
-        <h2 className={styles.listTitle}>Tautan Terbaru</h2>
-        {linksError && <p className={styles.listError}>{linksError}</p>}
-        {!linksError && links !== null && links.length === 0 && (
-          <p className={styles.empty}>Belum ada tautan. Buat tautan pertama di atas.</p>
-        )}
-        {links !== null && links.length > 0 && (
-          <ul className={styles.rows}>
-            {links.map((link) => (
-              <li key={link.code} className={styles.row}>
-                <span className={styles.code}>{link.code}</span>
-                <a
-                  href={link.shortUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={styles.shortLink}
-                >
-                  {link.shortUrl}
-                </a>
-                <a
-                  href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={styles.targetUrl}
-                  title={link.url}
-                >
-                  {link.url}
-                </a>
-                <time className={styles.date} dateTime={link.createdAt}>
-                  {new Date(link.createdAt).toLocaleString()}
-                </time>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </main>
+    <>
+      <Variant {...props} />
+      <PrototypeSwitcher current={key} onChange={changeVariant} />
+    </>
   );
 }
