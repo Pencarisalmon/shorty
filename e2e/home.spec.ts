@@ -87,14 +87,18 @@ test.describe("home page", () => {
       .getByRole("textbox", { name: "Target URL" })
       .fill("https://example.com/e2e-ticket");
     await page.getByRole("button", { name: "SHORTEN" }).click();
-    const receipt = page.locator('[data-slot="card"]');
+    const receipt = page
+      .getByRole("main")
+      .getByText("https://example.com/e2e-ticket", { exact: true })
+      .locator("..");
     await expect(receipt).toBeVisible();
-    const code = await receipt.locator("p").first().textContent();
-    expect(code).toMatch(/^[0-9A-Za-z]{6}$/);
     await expect(receipt).toContainText("https://example.com/e2e-ticket");
     const open = receipt.getByRole("link", { name: "OPEN ↗" });
     await expect(open).toHaveAttribute("target", "_blank");
-    await expect(open).toHaveAttribute("href", new RegExp(`/${code}$`));
+    const href = await open.getAttribute("href");
+    const code = href?.match(/\/([0-9A-Za-z]{6})$/)?.[1];
+    expect(code).toBeTruthy();
+    await expect(receipt).toContainText(code!);
   });
 
   test("COPY flips to COPIED ✓ for two seconds", async ({ page }) => {
@@ -285,12 +289,17 @@ test.describe("home page", () => {
         .getByRole("textbox", { name: "Target URL" })
         .fill("https://example.com/mobile-ticket");
       await page.getByRole("button", { name: "SHORTEN" }).click();
-      const copy = page.getByRole("button", { name: "COPY" });
+      const receipt = page
+        .getByRole("main")
+        .getByText("https://example.com/mobile-ticket", { exact: true })
+        .locator("..");
+      const copy = receipt.getByRole("button", { name: "COPY" });
       const copyBox = await copy.boundingBox();
       expect(copyBox).not.toBeNull();
       expect(copyBox!.width).toBeGreaterThan(300);
-      const code = page.locator('[data-slot="card"]').locator("p").first();
-      const codeBox = await code.boundingBox();
+      const codeBox = await receipt
+        .locator("p", { hasText: /^[0-9A-Za-z]{6}$/ })
+        .boundingBox();
       expect(codeBox).not.toBeNull();
       expect(copyBox!.y).toBeGreaterThanOrEqual(codeBox!.y + codeBox!.height);
     });
