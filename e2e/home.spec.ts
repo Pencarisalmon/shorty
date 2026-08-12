@@ -113,6 +113,117 @@ test.describe("home page", () => {
     });
   });
 
+  test("tape shows dashed skeleton rows while loading", async ({ page }) => {
+    await page.route("**/api/links", (route) => {
+      setTimeout(() => route.fulfill({ json: { links: [] } }), 1500);
+    });
+    await page.goto("/");
+    const skeleton = page
+      .getByRole("region", { name: "Recent short links" })
+      .getByRole("listitem");
+    await expect(skeleton).toHaveCount(3);
+    await expect(skeleton.first()).toHaveCSS("border-bottom-style", "dashed");
+  });
+
+  test("tape row links the code, truncates the target, prints a time", async ({
+    page,
+  }) => {
+    const code = "AbC123";
+    const target = "https://example.com/a-very-long-target-path";
+    await page.route("**/api/links", (route) =>
+      route.fulfill({
+        json: {
+          links: [
+            {
+              code,
+              url: target,
+              shortUrl: `http://localhost:3000/${code}`,
+              createdAt: "2026-08-12T07:00:00.000Z",
+            },
+          ],
+        },
+      })
+    );
+    await page.goto("/");
+    const row = page
+      .getByRole("region", { name: "Recent short links" })
+      .getByRole("listitem");
+    await expect(row).toHaveCount(1);
+    await expect(row.getByRole("link", { name: code })).toHaveAttribute(
+      "href",
+      `http://localhost:3000/${code}`
+    );
+    const targetLink = row.getByRole("link", { name: target });
+    await expect(targetLink).toHaveCSS("text-overflow", "ellipsis");
+    await targetLink.hover();
+    await expect(targetLink).toHaveCSS("text-decoration-line", "underline");
+    const time = row.locator("time");
+    await expect(time).toHaveAttribute(
+      "datetime",
+      "2026-08-12T07:00:00.000Z"
+    );
+    await expect(time).toHaveCSS("color", "rgb(110, 110, 102)");
+  });
+
+  test("ticket enters with animation under normal motion", async ({ page }) => {
+    await page.goto("/");
+    await page
+      .getByRole("textbox", { name: "Target URL" })
+      .fill("https://example.com/motion-test");
+    await page.getByRole("button", { name: "SHORTEN" }).click();
+    const ticket = page
+      .getByRole("main")
+      .getByText("https://example.com/motion-test", { exact: true })
+      .locator("..");
+    await expect(ticket).toHaveCSS("animation-name", "ticket-in");
+  });
+
+  test("prefers-reduced-motion disables the ticket animation", async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/");
+    await page
+      .getByRole("textbox", { name: "Target URL" })
+      .fill("https://example.com/reduced-motion");
+    await page.getByRole("button", { name: "SHORTEN" }).click();
+    const ticket = page
+      .getByRole("main")
+      .getByText("https://example.com/reduced-motion", { exact: true })
+      .locator("..");
+    await expect(ticket).toHaveCSS("animation-name", "none");
+  });
+
+  test("tape code column narrows below the 560px breakpoint", async ({
+    page,
+  }) => {
+    await page.route("**/api/links", (route) =>
+      route.fulfill({
+        json: {
+          links: [
+            {
+              code: "AbC123",
+              url: "https://example.com/x",
+              shortUrl: "http://localhost:3000/AbC123",
+              createdAt: "2026-08-12T07:00:00.000Z",
+            },
+          ],
+        },
+      })
+    );
+    await page.setViewportSize({ width: 768, height: 800 });
+    await page.goto("/");
+    const codeLink = page.getByRole("link", { name: "AbC123" });
+    await codeLink.waitFor();
+    const row = page
+      .getByRole("region", { name: "Recent short links" })
+      .getByRole("listitem")
+      .filter({ has: codeLink });
+    await expect(row).toHaveCSS("grid-template-columns", /^74px /);
+    await page.setViewportSize({ width: 360, height: 800 });
+    await expect(row).toHaveCSS("grid-template-columns", /^64px /);
+  });
+
   test("empty tape shows the no-receipts line", async ({ page }) => {
     await page.route("**/api/links", (route) =>
       route.fulfill({ json: { links: [] } })
