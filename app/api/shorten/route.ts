@@ -14,10 +14,10 @@ export async function POST(request: Request) {
   try {
     url = new URL(raw);
   } catch {
-    return NextResponse.json({ error: "URL tidak valid" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid URL" }, { status: 400 });
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
-    return NextResponse.json({ error: "URL harus http/https" }, { status: 400 });
+    return NextResponse.json({ error: "URL must start with http:// or https://" }, { status: 400 });
   }
 
   const link = await createShort(url.toString());
