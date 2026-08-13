@@ -32,7 +32,9 @@ function validateUrl(raw: string): string {
 }
 
 function formatTime(iso: string): string {
-  return new Date(iso).toLocaleString();
+  return new Date(iso)
+    .toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
+    .toLowerCase();
 }
 
 export default function Home() {
@@ -142,7 +144,7 @@ export default function Home() {
               type="text"
               value={url}
               onChange={(e) => onChangeUrl(e.target.value)}
-              placeholder="paste a long URL…"
+              placeholder="https://example.com/a-very-long-link"
               aria-invalid={error ? true : undefined}
               autoComplete="off"
               className="h-auto flex-1 min-w-0 rounded-none border-2 border-ink bg-[#fdfdfb] px-[14px] py-3 text-[15px] shadow-[3px_3px_0_0_var(--ink)] placeholder:text-[#88887e] focus-visible:border-ink focus-visible:ring-0 focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-stamp focus-visible:outline-offset-1 aria-invalid:border-stamp aria-invalid:ring-0 max-[560px]:w-full md:text-[15px]"
@@ -150,7 +152,7 @@ export default function Home() {
             <Button
               type="submit"
               disabled={submitting}
-              className="h-auto rounded-none border-2 border-ink bg-ink px-[18px] py-3 text-[16px] font-bold tracking-[0.06em] text-paper shadow-[3px_3px_0_0_var(--ink)] hover:bg-ink disabled:pointer-events-auto disabled:cursor-progress disabled:opacity-60 disabled:hover:bg-ink max-[560px]:w-full"
+              className="h-auto rounded-none border-2 border-ink bg-ink px-[18px] py-3 text-[16px] font-bold tracking-[0.06em] text-paper shadow-[3px_3px_0_0_var(--ink)] hover:bg-ink disabled:pointer-events-auto disabled:cursor-progress disabled:opacity-60 disabled:hover:bg-ink max-[560px]:w-full cursor-pointer"
             >
               {submitting ? "PRINTING…" : "SHORTEN"}
             </Button>
@@ -181,7 +183,7 @@ export default function Home() {
                 <Button
                   type="button"
                   onClick={onCopy}
-                  className="h-auto shrink-0 rounded-none border-2 border-ink bg-white px-[10px] py-[6px] text-[12px] font-bold tracking-[0.08em] text-ink shadow-[2px_2px_0_0_var(--ink)] hover:bg-primary/80"
+                  className="h-auto shrink-0 rounded-none border-2 border-ink bg-white px-[10px] py-[6px] text-[12px] font-bold tracking-[0.08em] text-ink shadow-[2px_2px_0_0_var(--ink)] hover:bg-primary/80 hover:text-paper"
                 >
                   {copied ? "COPIED ✓" : "COPY"}
                 </Button>
@@ -208,12 +210,12 @@ export default function Home() {
           {!linksError && links === null && (
             <ul className="flex flex-col">
               {[0, 1, 2].map((i) => (
-                <li
-                  key={i}
-                  className="border-b border-dashed border-line py-3"
-                >
-                  <div className="h-[16px] w-3/5 border border-dashed border-line bg-stripe" />
-                </li>
+<li
+                    key={i}
+                    className="border-t border-dashed border-line py-3"
+                  >
+                    <div className="h-[16px] w-3/5 border border-dashed border-line bg-stripe" />
+                  </li>
               ))}
             </ul>
           )}
@@ -225,13 +227,13 @@ export default function Home() {
               {links.map((link) => (
                 <li
                   key={link.code}
-                  className="grid grid-cols-[64px_1fr_auto] items-center gap-x-3 border-b border-dashed border-line py-3 min-[560px]:grid-cols-[74px_1fr_auto]"
+                  className="grid grid-cols-[64px_1fr_auto] items-center gap-x-3 border-t border-dashed border-line py-3 min-[560px]:grid-cols-[74px_1fr_auto]"
                 >
                   <a
                     href={link.shortUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="truncate text-[14px] text-stamp underline-offset-4 hover:underline"
+                    className="truncate text-[14px] font-bold text-stamp underline-offset-4 hover:underline"
                   >
                     {link.code}
                   </a>
