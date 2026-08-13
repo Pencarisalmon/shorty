@@ -1,11 +1,14 @@
 import { expect, test } from "@playwright/test";
 
 const STAMP_RGB = "rgb(216, 56, 46)";
+const ORIGIN = new URL(
+  process.env.E2E_BASE_URL ?? "http://localhost:3000"
+).origin;
 
 test.describe("home page", () => {
   test.beforeEach(async ({ context }) => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"], {
-      origin: "http://localhost:3000",
+      origin: ORIGIN,
     });
   });
 
@@ -29,9 +32,8 @@ test.describe("home page", () => {
     ).toBeVisible();
     const input = page.getByRole("textbox", { name: "Target URL" });
     await expect(input).toHaveAttribute("aria-invalid", "true");
-    const slit = page.locator("form > div");
-    await expect(slit).toHaveCSS("border-top-color", STAMP_RGB);
-    await expect(slit).toHaveCSS("border-top-width", "2px");
+    await expect(input).toHaveCSS("border-top-color", STAMP_RGB);
+    await expect(input).toHaveCSS("border-top-width", "2px");
   });
 
   test("non-http(s) URL shows the protocol message", async ({ page }) => {
@@ -87,10 +89,7 @@ test.describe("home page", () => {
       .getByRole("textbox", { name: "Target URL" })
       .fill("https://example.com/e2e-ticket");
     await page.getByRole("button", { name: "SHORTEN" }).click();
-    const receipt = page
-      .getByRole("main")
-      .getByText("https://example.com/e2e-ticket", { exact: true })
-      .locator("..");
+    const receipt = page.locator('section[aria-live="polite"]');
     await expect(receipt).toBeVisible();
     await expect(receipt).toContainText("https://example.com/e2e-ticket");
     const open = receipt.getByRole("link", { name: "OPEN ↗" });
@@ -175,10 +174,7 @@ test.describe("home page", () => {
       .getByRole("textbox", { name: "Target URL" })
       .fill("https://example.com/motion-test");
     await page.getByRole("button", { name: "SHORTEN" }).click();
-    const ticket = page
-      .getByRole("main")
-      .getByText("https://example.com/motion-test", { exact: true })
-      .locator("..");
+    const ticket = page.locator('section[aria-live="polite"]');
     await expect(ticket).toHaveCSS("animation-name", "ticket-in");
   });
 
@@ -191,10 +187,7 @@ test.describe("home page", () => {
       .getByRole("textbox", { name: "Target URL" })
       .fill("https://example.com/reduced-motion");
     await page.getByRole("button", { name: "SHORTEN" }).click();
-    const ticket = page
-      .getByRole("main")
-      .getByText("https://example.com/reduced-motion", { exact: true })
-      .locator("..");
+    const ticket = page.locator('section[aria-live="polite"]');
     await expect(ticket).toHaveCSS("animation-name", "none");
   });
 
@@ -283,25 +276,29 @@ test.describe("home page", () => {
       expect(buttonBox!.y).toBeGreaterThanOrEqual(inputBox!.y + inputBox!.height);
     });
 
-    test("ticket copy drops full width below the code", async ({ page }) => {
+    test("ticket keeps code on top, inline COPY row, OPEN below", async ({
+      page,
+    }) => {
       await page.goto("/");
       await page
         .getByRole("textbox", { name: "Target URL" })
         .fill("https://example.com/mobile-ticket");
       await page.getByRole("button", { name: "SHORTEN" }).click();
-      const receipt = page
-        .getByRole("main")
-        .getByText("https://example.com/mobile-ticket", { exact: true })
-        .locator("..");
-      const copy = receipt.getByRole("button", { name: "COPY" });
-      const copyBox = await copy.boundingBox();
-      expect(copyBox).not.toBeNull();
-      expect(copyBox!.width).toBeGreaterThan(300);
+      const receipt = page.locator('section[aria-live="polite"]');
       const codeBox = await receipt
         .locator("p", { hasText: /^[0-9A-Za-z]{6}$/ })
         .boundingBox();
+      const copyBox = await receipt
+        .getByRole("button", { name: "COPY" })
+        .boundingBox();
+      const openBox = await receipt
+        .getByRole("link", { name: "OPEN ↗" })
+        .boundingBox();
       expect(codeBox).not.toBeNull();
-      expect(copyBox!.y).toBeGreaterThanOrEqual(codeBox!.y + codeBox!.height);
+      expect(copyBox).not.toBeNull();
+      expect(openBox).not.toBeNull();
+      expect(copyBox!.y).toBeGreaterThanOrEqual(codeBox!.y + codeBox!.height - 1);
+      expect(openBox!.y).toBeGreaterThanOrEqual(copyBox!.y + copyBox!.height - 1);
     });
   });
 });

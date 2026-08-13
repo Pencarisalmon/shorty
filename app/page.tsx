@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
 type ShortResult = {
@@ -17,8 +16,6 @@ const EMPTY_MSG = "Paste a URL to shorten it.";
 const PROTOCOL_MSG =
   "That doesn't look like a valid link — it should start with http:// or https://.";
 const EMPTY_TAPE = "// no receipts yet — your first link prints here.";
-const receiptButton =
-  "h-auto rounded-none border border-ink px-3 py-2 text-[14px] font-bold tracking-[0.06em] hover:bg-primary/80 focus-visible:ring-ring focus-visible:ring-offset-1 max-[560px]:w-full";
 
 function validateUrl(raw: string): string {
   const value = raw.trim();
@@ -123,85 +120,87 @@ export default function Home() {
 
   return (
     <div className="min-h-svh bg-paper">
-      <div className="mx-auto flex w-full max-w-[520px] flex-col gap-8 px-4 py-10 leading-[1.6]">
+      <div className="mx-auto flex w-full max-w-[680px] flex-col px-5 pb-[100px] pt-7">
         <h1 className="sr-only">Shorty — receipt printer for the web</h1>
-        <header className="flex flex-col gap-1">
+        <header className="mb-[22px] flex flex-wrap items-baseline justify-between gap-3 border-b-[3px] border-ink pb-[10px] text-[13px]">
           <p className="text-[20px] font-bold tracking-[0.12em]">SHORTY</p>
-          <p className="text-[13px] tracking-[0.04em] text-muted-foreground">
+          <p className="text-muted-foreground tracking-[0.04em]">
             receipt printer for the web
           </p>
         </header>
-        <main className="flex flex-col gap-5">
-          <form onSubmit={onSubmit} noValidate>
-            <div
-              className={`bg-surface p-3 shadow-[3px_3px_0_0_var(--ink)] ${
-                error ? "border-[2px] border-stamp" : "border border-ink"
-              }`}
+        <main className="flex flex-col">
+          <form
+            onSubmit={onSubmit}
+            noValidate
+            className="flex gap-2 max-[560px]:flex-col"
+          >
+            <label htmlFor="target-url" className="sr-only">
+              Target URL
+            </label>
+            <Input
+              id="target-url"
+              type="text"
+              value={url}
+              onChange={(e) => onChangeUrl(e.target.value)}
+              placeholder="paste a long URL…"
+              aria-invalid={error ? true : undefined}
+              autoComplete="off"
+              className="h-auto flex-1 min-w-0 rounded-none border-2 border-ink bg-[#fdfdfb] px-[14px] py-3 text-[15px] shadow-[3px_3px_0_0_var(--ink)] placeholder:text-[#88887e] focus-visible:border-ink focus-visible:ring-0 focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-stamp focus-visible:outline-offset-1 aria-invalid:border-stamp aria-invalid:ring-0 max-[560px]:w-full md:text-[15px]"
+            />
+            <Button
+              type="submit"
+              disabled={submitting}
+              className="h-auto rounded-none border-2 border-ink bg-ink px-[18px] py-3 text-[16px] font-bold tracking-[0.06em] text-paper shadow-[3px_3px_0_0_var(--ink)] hover:bg-ink disabled:pointer-events-auto disabled:cursor-progress disabled:opacity-60 disabled:hover:bg-ink max-[560px]:w-full"
             >
-              <div className="flex max-[560px]:flex-col max-[560px]:gap-2">
-                <label htmlFor="target-url" className="sr-only">
-                  Target URL
-                </label>
-                <Input
-                  id="target-url"
-                  type="text"
-                  value={url}
-                  onChange={(e) => onChangeUrl(e.target.value)}
-                  placeholder="https://example.com/a-very-long-link"
-                  aria-invalid={error ? true : undefined}
-                  autoComplete="off"
-                  className="h-auto rounded-none border-0 bg-transparent px-1 py-2 text-[15px] shadow-none focus-visible:ring-ring focus-visible:ring-offset-1 max-[560px]:w-full"
-                />
-                <Button
-                  type="submit"
-                  disabled={submitting}
-                  className={`${receiptButton} self-stretch shadow-none disabled:cursor-progress disabled:opacity-100`}
-                >
-                  {submitting ? "PRINTING…" : "SHORTEN"}
-                </Button>
-              </div>
-            </div>
+              {submitting ? "PRINTING…" : "SHORTEN"}
+            </Button>
           </form>
           {error && (
-            <p role="alert" className="text-[13px] text-error">
+            <p
+              role="alert"
+              className="mx-[2px] mt-[10px] text-[13px] font-bold text-error"
+            >
               {error}
             </p>
           )}
           {short && (
-            <Card
+            <section
               aria-live="polite"
-              className="gap-4 rounded-none border border-ink shadow-none motion-safe:animate-[ticket-in_0.25s_ease-out] max-[560px]:gap-3"
+              className="mt-[18px] rounded-none border-2 border-dashed border-ink bg-[#fdfdfb] px-4 py-[14px] motion-safe:animate-[ticket-in_0.25s_ease]"
             >
-              <p className="px-4 text-[34px] font-bold tracking-[0.1em] text-stamp">
+              <p className="text-[34px] font-bold leading-none tracking-[0.1em]">
                 {short.code}
               </p>
-              <p
-                className="max-w-full truncate px-4 text-[14px] text-muted-foreground"
-                title={short.url}
-              >
-                {short.url}
-              </p>
-              <div className="flex flex-wrap gap-2 border-t border-line px-4 py-3 max-[560px]:flex-col">
+              <div className="mt-2 flex min-w-0 items-center justify-between gap-3">
+                <p
+                  className="min-w-0 truncate text-[13px] text-muted-foreground"
+                  title={short.url}
+                >
+                  {short.url}
+                </p>
                 <Button
                   type="button"
                   onClick={onCopy}
-                  className={`${receiptButton} bg-primary shadow-[3px_3px_0_0_var(--ink)]`}
+                  className="h-auto shrink-0 rounded-none border-2 border-ink bg-white px-[10px] py-[6px] text-[12px] font-bold tracking-[0.08em] text-ink shadow-[2px_2px_0_0_var(--ink)] hover:bg-primary/80"
                 >
                   {copied ? "COPIED ✓" : "COPY"}
                 </Button>
-                <a
-                  href={short.shortUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="self-center px-2 text-[14px] font-bold tracking-[0.06em] text-stamp underline-offset-4 hover:underline max-[560px]:self-start"
-                >
-                  OPEN ↗
-                </a>
               </div>
-            </Card>
+              <a
+                href={short.shortUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-[10px] inline-block text-[12px] font-bold tracking-[0.1em] text-stamp underline underline-offset-[3px]"
+              >
+                OPEN ↗
+              </a>
+            </section>
           )}
         </main>
-        <section aria-label="Recent short links" className="flex flex-col gap-3">
+        <section
+          aria-label="Recent short links"
+          className="mt-7 flex flex-col gap-3"
+        >
           <h2 className="text-[12px] tracking-[0.12em] text-muted-foreground">
             {"// RECENTLY PRINTED"}
           </h2>
