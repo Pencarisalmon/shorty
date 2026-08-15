@@ -28,7 +28,20 @@ pnpm start   # serve hasil build
 ## Konfigurasi
 
 - `DATABASE_URL` (env, wajib) — connection string Neon Postgres.
+- `BETTER_AUTH_SECRET` (env, wajib) — secret untuk Better Auth (session cookie signing).
+- `RESEND_API_KEY` (env, opsional) — untuk pengiriman kode OTP via Resend. Tanpa ini, OTP dicetak ke console server (fallback dev).
+- `RESEND_FROM` (env, opsional) — alamat pengirim email OTP. Default: `Shorty <onboarding@resend.dev>`.
 - `BASE_URL` (env, opsional) — base URL untuk shortUrl yang dihasilkan. Default: origin dari request.
+
+## Autentikasi
+
+Better Auth di `/api/auth/*` (catch-all). Sign-in via email OTP:
+
+- `POST /api/auth/email-otp/send-verification-otp` — body `{"email": "...", "type": "sign-in"}` → kirim kode.
+- `POST /api/auth/sign-in/email-otp` — body `{"email": "...", "otp": "123456"}` → set session cookie.
+- `GET /api/auth/get-session` — status sign-in (dengan cookie).
+
+Session cookie: httpOnly, SameSite=Lax, Secure di produksi (https). Lifetime 30 hari sliding, cap absolut 90 hari.
 
 ## Penyimpanan
 

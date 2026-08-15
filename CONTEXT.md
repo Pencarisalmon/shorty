@@ -19,3 +19,15 @@ _Avoid_: Shortened URL
 **Shorten**:
 The act of creating a short URL from a target URL.
 _Avoid_: Generate, create
+
+**Sign in**:
+The act of establishing a session, by entering a one-time code sent to an email address.
+_Avoid_: Login, log in, authenticate
+
+**One-time code**:
+The 6-digit code emailed to a visitor's address that proves they own it; expires after 5 minutes.
+_Avoid_: OTP, code, verification code
+
+**Session**:
+The signed-in state stored server-side, carried by an httpOnly cookie; slides on use up to a 90-day absolute cap.
+_Avoid_: JWT, token, login state

@@ -21,6 +21,10 @@ URL shortener app: form at `/`, `POST /api/shorten` creates short links, `GET /<
 
 - **Storage: Neon Postgres via Drizzle ORM** (neon-http driver), not a JSON file anymore (migrated in commit a12325f). `lib/db.ts` = `drizzle(neon(process.env.DATABASE_URL!))`; `.env` (gitignored) must contain `DATABASE_URL`.
 - `lib/schema.ts` — `links` table: `code` text PK, `url` text, `createdAt` timestamptz. `drizzle/` migrations are committed.
+- `lib/auth-schema.ts` — Better Auth tables (`user`, `session`, `account`, `verification`), CLI-generated; regenerate with `pnpm dlx @better-auth/cli generate --config <temp-config> --output lib/auth-schema.ts --yes` (CLI's jiti loader can't resolve the `@/` alias, so use a temp config with relative imports).
+- `lib/auth.ts` — Better Auth instance: Drizzle adapter on the existing `db`, email-OTP plugin (Resend delivery; without `RESEND_API_KEY` the OTP is logged to the server console as a dev fallback), sessions 30-day sliding with a 90-day absolute cap enforced by an adapter wrapper.
+- Auth endpoints mount at `app/api/auth/[...all]/route.ts` (standard Better Auth catch-all). No custom auth endpoints yet.
+- Env for auth: `BETTER_AUTH_SECRET` (required), `RESEND_API_KEY` + optional `RESEND_FROM` (OTP email).
 - `lib/store.ts` exports async `createShort(url)` / `getUrl(code)`. `genCode()` = 6-char base62 with alphabet `0-9A-Z-a-z` (order: digits, uppercase, lowercase), inserts with `onConflictDoNothing` + 5 retries.
 - Route handlers: `app/api/shorten/route.ts` (POST → 201 `{code, shortUrl}` / 400), `app/[code]/route.ts` (GET → 307 `NextResponse.redirect` / 404).
 - `params` is a **Promise** in route handlers (Next 15+): `await params` before use.
