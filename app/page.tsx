@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { authClient } from "@/lib/auth-client";
 
 type ShortResult = {
   code: string;
@@ -38,14 +40,17 @@ function formatTime(iso: string): string {
 }
 
 export default function Home() {
+  const { data: session } = authClient.useSession();
   const [url, setUrl] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [short, setShort] = useState<ShortResult | null>(null);
+  const [justShortened, setJustShortened] = useState(false);
   const [copied, setCopied] = useState(false);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [links, setLinks] = useState<LinkRow[] | null>(null);
   const [linksError, setLinksError] = useState("");
+  const [signOutError, setSignOutError] = useState("");
 
   useEffect(() => {
     let ignore = false;
@@ -88,9 +93,11 @@ export default function Home() {
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Couldn't shorten the link.");
+        setJustShortened(false);
         return;
       }
       setShort({ code: data.code, url: url.trim(), shortUrl: data.shortUrl });
+      setJustShortened(true);
       setLinks((rows) =>
         rows
           ? [
@@ -106,6 +113,7 @@ export default function Home() {
       );
     } catch {
       setError("Couldn't shorten the link.");
+      setJustShortened(false);
     } finally {
       setSubmitting(false);
     }
@@ -120,6 +128,16 @@ export default function Home() {
     });
   }
 
+  async function onSignOut() {
+    try {
+      await authClient.signOut();
+      setJustShortened(false);
+      setSignOutError("");
+    } catch {
+      setSignOutError("Couldn't sign out — check your connection.");
+    }
+  }
+
   return (
     <div className="min-h-svh bg-paper">
       <div className="mx-auto flex w-full max-w-[680px] flex-col px-5 pb-[100px] pt-7">
@@ -130,6 +148,26 @@ export default function Home() {
             receipt printer for the web
           </p>
         </header>
+        {session?.user && (
+          <div className="mb-[22px] flex items-center justify-between gap-3 border-b-2 border-dashed border-line pb-[10px] text-[12px]">
+            <p className="min-w-0 truncate text-muted-foreground">
+              signed in as{" "}
+              <span className="font-bold text-ink">{session.user.email}</span>
+            </p>
+            <Button
+              type="button"
+              onClick={() => void onSignOut()}
+              className="h-auto shrink-0 cursor-pointer rounded-none border-2 border-ink bg-white px-[10px] py-[6px] text-[12px] font-bold tracking-[0.08em] text-ink shadow-[2px_2px_0_0_var(--ink)] hover:bg-primary/80 hover:text-paper"
+            >
+              SIGN OUT
+            </Button>
+          </div>
+        )}
+        {signOutError && (
+          <p role="alert" className="mb-[16px] text-[13px] font-bold text-error">
+            {signOutError}
+          </p>
+        )}
         <main className="flex flex-col">
           <form
             onSubmit={onSubmit}
@@ -197,6 +235,17 @@ export default function Home() {
                 OPEN ↗
               </a>
             </section>
+          )}
+          {justShortened && !session?.user && (
+            <p className="mt-[10px] text-[12px] tracking-[0.1em] text-muted-foreground">
+              {"// want to keep your receipts? "}
+              <Link
+                href="/sign-in"
+                className="font-bold text-stamp underline underline-offset-[3px]"
+              >
+                sign in →
+              </Link>
+            </p>
           )}
         </main>
         <section
