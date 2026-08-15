@@ -1,9 +1,11 @@
 import { betterAuth } from "better-auth";
+import { createAuthMiddleware } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { emailOTP } from "better-auth/plugins";
 import type { BetterAuthOptions } from "better-auth";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/auth-schema";
+import { consumeEmailOtpLimit, OTP_MAX, OTP_WINDOW_S, type OtpSendBody } from "@/lib/rate-limit";
 
 const SESSION_MS = 30 * 24 * 60 * 60 * 1000; // 30-day sliding window
 const ABSOLUTE_CAP_MS = 90 * 24 * 60 * 60 * 1000; // 90-day absolute cap
@@ -63,6 +65,36 @@ export const auth = betterAuth({
     expiresIn: SESSION_MS / 1000,
     updateAge: 24 * 60 * 60, // slide daily on use
   },
+  // Per-client (IP) throttling, DB-backed so it survives serverless cold
+  // starts. Window/max defaults (10s/100 per IP per path) are a safety net for
+  // the rest of the auth API; OTP paths get the stricter 60s/5 from the
+  // emailOTP plugin rules below, so normal use never trips this.
+  rateLimit: {
+    enabled: true,
+    storage: "database",
+  },
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== "/email-otp/send-verification-otp") return;
+      // Per-email throttle on top of better-auth's per-IP limiter: an abuser
+      // rotating IPs must not be able to burn the quota for one inbox.
+      const email = (ctx.body as OtpSendBody | null)?.email;
+      if (!email) return;
+      const { allowed, retryAfter } = await consumeEmailOtpLimit(email.toLowerCase());
+      if (!allowed) {
+        return {
+          response: new Response(
+            JSON.stringify({ message: "Too many requests. Please try again later." }),
+            {
+              status: 429,
+              statusText: "Too Many Requests",
+              headers: { "X-Retry-After": String(retryAfter) },
+            }
+          ),
+        };
+      }
+    }),
+  },
   socialProviders: {
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -82,6 +114,7 @@ export const auth = betterAuth({
   },
   plugins: [
     emailOTP({
+      rateLimit: { window: OTP_WINDOW_S, max: OTP_MAX },
       async sendVerificationOTP({ email, otp }) {
         await sendOtpEmail(email, otp);
       },
