@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { OneTimeCodeForm } from "@/components/auth/one-time-code-form";
+import { OAuthButtons } from "@/components/auth/oauth-buttons";
 
 export default function SignInPage() {
   return (
@@ -16,8 +17,10 @@ export default function SignInPage() {
             SIGN IN
           </h1>
           <p className="text-[13px] leading-relaxed text-muted-foreground">
-            No password — a code lands in your inbox, and it signs you in.
+            No password — a code lands in your inbox, or sign in with Google or
+            GitHub.
           </p>
+          <OAuthButtons />
           <OneTimeCodeForm mode="sign-in" />
           <div className="flex flex-wrap items-center justify-between gap-3 text-[12px]">
             <Link

@@ -113,7 +113,7 @@ test.describe("auth surfaces", () => {
     await page.getByRole("button", { name: "GET CODE" }).click();
     await expect(page.getByRole("textbox", { name: "Code" })).toBeVisible();
     await page.getByRole("textbox", { name: "Code" }).fill("123456");
-    await page.getByRole("button", { name: "SIGN IN" }).click();
+    await page.getByRole("button", { name: "SIGN IN", exact: true }).click();
     await expect(page).toHaveURL(ORIGIN + "/");
     await expect(page.getByRole("button", { name: "SIGN OUT" })).toBeVisible();
   });
@@ -133,7 +133,7 @@ test.describe("auth surfaces", () => {
     await page.getByRole("textbox", { name: "Email" }).fill("tape@example.com");
     await page.getByRole("button", { name: "GET CODE" }).click();
     await page.getByRole("textbox", { name: "Code" }).fill("123456");
-    await page.getByRole("button", { name: "SIGN UP" }).click();
+    await page.getByRole("button", { name: "SIGN UP", exact: true }).click();
     await expect(page).toHaveURL(ORIGIN + "/");
   });
 

@@ -15,7 +15,7 @@ URL shortener app: form at `/`, `POST /api/shorten` creates short links, `GET /<
 - `pnpm build` — production build; also runs the typecheck (no separate `typecheck` script)
 - `pnpm lint` — plain `eslint` (flat config `eslint.config.mjs`)
 - `pnpm db:generate` / `pnpm db:migrate` — drizzle-kit; schema changes: edit `lib/schema.ts` → generate → migrate
-- No tests, no CI. Manual verification: build, then `pnpm start` + curl POST/GET.
+- `pnpm test:e2e` — Playwright e2e in `e2e/` (mocks auth HTTP endpoints; webServer builds + starts prod). No unit tests, no CI.
 
 ## Architecture
 
@@ -25,7 +25,7 @@ URL shortener app: form at `/`, `POST /api/shorten` creates short links, `GET /<
 - `lib/auth.ts` — Better Auth instance: Drizzle adapter on the existing `db`, email-OTP plugin (Resend delivery; without `RESEND_API_KEY` the OTP is logged to the server console as a dev fallback), sessions 30-day sliding with a 90-day absolute cap enforced by an adapter wrapper.
 - Auth endpoints mount at `app/api/auth/[...all]/route.ts` (standard Better Auth catch-all). No custom auth endpoints yet.
 - Auth UI (client-side): `lib/auth-client.ts` = `createAuthClient` + `emailOTPClient` plugin. Custom receipt-styled pages `app/sign-in/` + `app/sign-up/` share `components/auth/one-time-code-form.tsx` (send code → enter code → `signIn.emailOtp`). Home page uses `authClient.useSession()`: sign-in nudge after anonymous shorten + signed-in strip with SIGN OUT. Client flow: `emailOtp.sendVerificationOtp({email,type:"sign-in"})` auto-creates the account on first sign-in (no separate sign-up semantics); e2e mocks the auth HTTP endpoints via Playwright route interception.
-- Env for auth: `BETTER_AUTH_SECRET` (required), `RESEND_API_KEY` + optional `RESEND_FROM` (OTP email).
+- Env for auth: `BETTER_AUTH_SECRET` (required), `RESEND_API_KEY` + optional `RESEND_FROM` (OTP email), `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` + `GITHUB_CLIENT_ID`/`GITHUB_CLIENT_SECRET` (OAuth; providers 500 with `CLIENT_ID_AND_SECRET_REQUIRED` when unset). OAuth redirect URIs (exact-match, set in provider console): `<BETTER_AUTH_URL>/api/auth/callback/google|github`. Account linking: `account.accountLinking.trustedProviders: ["google","github"]` — OAuth and email-OTP identities with the same email resolve to one account. OAuth UI: `components/auth/oauth-buttons.tsx` on sign-in/sign-up pages; e2e in `e2e/oauth.spec.ts` mocks the `sign-in/social` redirect.
 - `lib/store.ts` exports async `createShort(url)` / `getUrl(code)`. `genCode()` = 6-char base62 with alphabet `0-9A-Z-a-z` (order: digits, uppercase, lowercase), inserts with `onConflictDoNothing` + 5 retries.
 - Route handlers: `app/api/shorten/route.ts` (POST → 201 `{code, shortUrl}` / 400), `app/[code]/route.ts` (GET → 307 `NextResponse.redirect` / 404).
 - `params` is a **Promise** in route handlers (Next 15+): `await params` before use.

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { OneTimeCodeForm } from "@/components/auth/one-time-code-form";
+import { OAuthButtons } from "@/components/auth/oauth-buttons";
 
 export default function SignUpPage() {
   return (
@@ -15,8 +16,9 @@ export default function SignUpPage() {
           <h1 className="text-[22px] font-bold tracking-[0.12em]">SIGN UP</h1>
           <p className="text-[13px] leading-relaxed text-muted-foreground">
             No password, no sign-up form — your first code creates your account
-            and signs you in.
+            and signs you in, or use Google or GitHub.
           </p>
+          <OAuthButtons />
           <OneTimeCodeForm mode="sign-up" />
           <div className="flex flex-wrap items-center justify-between gap-3 text-[12px]">
             <Link

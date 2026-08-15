@@ -63,6 +63,23 @@ export const auth = betterAuth({
     expiresIn: SESSION_MS / 1000,
     updateAge: 24 * 60 * 60, // slide daily on use
   },
+  socialProviders: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    },
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+    },
+  },
+  account: {
+    accountLinking: {
+      // Link Google/GitHub identities to the existing email-OTP account even
+      // when the IdP reports email_verified: false — receipts must never split.
+      trustedProviders: ["google", "github"],
+    },
+  },
   plugins: [
     emailOTP({
       async sendVerificationOTP({ email, otp }) {
