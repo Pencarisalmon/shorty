@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createShort } from "@/lib/store";
+import { auth } from "@/lib/auth";
 
 export async function POST(request: Request) {
   let body: { url?: unknown };
@@ -20,7 +21,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "URL must start with http:// or https://" }, { status: 400 });
   }
 
-  const link = await createShort(url.toString());
+  const session = await auth.api.getSession({ headers: request.headers });
+  const link = await createShort(url.toString(), session?.user.id);
   const base = process.env.BASE_URL ?? new URL(request.url).origin;
   return NextResponse.json(
     { code: link.code, shortUrl: `${base}/${link.code}` },

@@ -15,12 +15,12 @@ function genCode(): string {
 // ponytail: retry loop as unique-violation backstop; 62^6 codes, collisions near-impossible
 const MAX_RETRIES = 5;
 
-export async function createShort(url: string): Promise<Link> {
+export async function createShort(url: string, ownerId?: string): Promise<Link> {
   for (let i = 0; i < MAX_RETRIES; i++) {
     const code = genCode();
     const inserted = await db
       .insert(links)
-      .values({ code, url })
+      .values({ code, url, ownerId })
       .onConflictDoNothing()
       .returning();
     if (inserted[0]) return inserted[0];
