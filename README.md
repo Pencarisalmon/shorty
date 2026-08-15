@@ -6,7 +6,7 @@ Aplikasi web perpendek URL berbasis Next.js (App Router). Masukkan URL panjang d
 
 ```bash
 pnpm install
-# buat file .env berisi DATABASE_URL (connection string Neon Postgres)
+cp .env.example .env   # lalu isi nilai-nilainya (DATABASE_URL, BETTER_AUTH_SECRET, dll.)
 pnpm db:migrate        # jalankan migration yang ada di drizzle/
 pnpm dev
 ```
