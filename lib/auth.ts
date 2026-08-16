@@ -30,7 +30,10 @@ async function sendOtpEmail(email: string, otp: string) {
       html: `<p>Your Shorty sign-in code:</p><p style="font-size:24px;font-weight:bold;letter-spacing:4px">${otp}</p><p>It expires in 5 minutes.</p>`,
     }),
   });
-  if (!res.ok) throw new Error(`Resend failed: ${res.status}`);
+  if (!res.ok) {
+    const errorBody = await res.text().catch(() => "");
+    throw new Error(`Resend failed: ${res.status}${errorBody ? ` - ${errorBody}` : ""}`);
+  }
 }
 
 // better-auth has no absolute session cap; wrap the adapter so a session whose
