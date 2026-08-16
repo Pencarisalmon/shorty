@@ -39,11 +39,11 @@ export async function listLinks(): Promise<Link[]> {
   return db.select().from(links).orderBy(desc(links.createdAt)).limit(LIST_LIMIT);
 }
 
-export async function deleteLink(code: string, ownerId?: string): Promise<boolean> {
-  const condition = ownerId
-    ? and(eq(links.code, code), eq(links.ownerId, ownerId))
-    : eq(links.code, code);
-  const result = await db.delete(links).where(condition).returning({ code: links.code });
+export async function deleteLink(code: string, ownerId: string): Promise<boolean> {
+  const result = await db
+    .delete(links)
+    .where(and(eq(links.code, code), eq(links.ownerId, ownerId)))
+    .returning({ code: links.code });
   return result.length > 0;
 }
 

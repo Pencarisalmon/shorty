@@ -171,22 +171,22 @@ function useCopy(timeoutMs = 2000) {
 function TapeRow({
   link,
   isOwner,
-  onRemove,
-  isRemoving,
+  onDismiss,
+  onDelete,
+  isExiting,
 }: {
   link: LinkRow;
   isOwner: boolean;
-  onRemove: (code: string) => void;
-  isRemoving?: boolean;
+  onDismiss: (code: string) => void;
+  onDelete: (code: string) => void;
+  isExiting?: boolean;
 }) {
   const [copied, copy] = useCopy();
-  const removeLabel = isOwner ? `Delete ${link.code}` : `Dismiss ${link.code}`;
-  const removeTitle = isOwner ? "Delete" : "Dismiss";
 
   return (
     <li
       className={`grid grid-cols-[64px_1fr_auto] items-center gap-x-3 border-t border-dashed border-line py-3 transition-all duration-200 ease-out motion-reduce:transition-none min-[560px]:grid-cols-[74px_1fr_auto] ${
-        isRemoving ? "pointer-events-none opacity-0 -translate-x-2" : ""
+        isExiting ? "pointer-events-none opacity-0 -translate-x-2" : ""
       }`}
     >
       <a
@@ -230,19 +230,27 @@ function TapeRow({
             <CopyIcon className="size-3.5" />
           )}
         </button>
-        <button
-          type="button"
-          onClick={() => onRemove(link.code)}
-          aria-label={removeLabel}
-          title={removeTitle}
-          className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-none border border-ink bg-white text-ink shadow-[1px_1px_0_0_var(--ink)] transition-colors hover:bg-ink hover:text-paper focus-visible:outline-2 focus-visible:outline-stamp focus-visible:outline-offset-1"
-        >
-          {isOwner ? (
+        {isOwner ? (
+          <button
+            type="button"
+            onClick={() => onDelete(link.code)}
+            aria-label={`Delete ${link.code}`}
+            title="Delete"
+            className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-none border border-ink bg-white text-ink shadow-[1px_1px_0_0_var(--ink)] transition-colors hover:bg-ink hover:text-paper focus-visible:outline-2 focus-visible:outline-stamp focus-visible:outline-offset-1"
+          >
             <TrashIcon className="size-3.5" />
-          ) : (
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onDismiss(link.code)}
+            aria-label={`Dismiss ${link.code}`}
+            title="Dismiss"
+            className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-none border border-ink bg-white text-ink shadow-[1px_1px_0_0_var(--ink)] transition-colors hover:bg-ink hover:text-paper focus-visible:outline-2 focus-visible:outline-stamp focus-visible:outline-offset-1"
+          >
             <DismissIcon className="size-3.5" />
-          )}
-        </button>
+          </button>
+        )}
       </div>
     </li>
   );
@@ -261,7 +269,7 @@ export default function Home() {
   const [linksError, setLinksError] = useState("");
   const [signOutError, setSignOutError] = useState("");
   const [dismissedCodes, setDismissedCodes] = useState<string[]>(getDismissedCodes);
-  const [removingCodes, setRemovingCodes] = useState<string[]>([]);
+  const [exitingCodes, setExitingCodes] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -285,28 +293,32 @@ export default function Home() {
     };
   }, []);
 
-  function onRemove(code: string) {
-    const target = links?.find((l) => l.code === code);
-    const isOwner = Boolean(
-      session?.user?.id && target?.ownerId === session.user.id
-    );
+  function onDismiss(code: string) {
+    setExitingCodes((prev) => [...prev, code]);
+    saveDismissedCode(code);
+    setTimeout(() => {
+      setDismissedCodes((prev) => [...prev, code]);
+      setExitingCodes((prev) => prev.filter((c) => c !== code));
+    }, 200);
+  }
 
-    setRemovingCodes((prev) => [...prev, code]);
+  async function onDelete(code: string) {
+    setExitingCodes((prev) => [...prev, code]);
 
-    if (isOwner) {
-      fetch(`/api/links/${code}`, { method: "DELETE" }).catch(() => {
-        // Graceful network failure handling
-      });
+    try {
+      const res = await fetch(`/api/links/${code}`, { method: "DELETE" });
+      if (!res.ok) {
+        setExitingCodes((prev) => prev.filter((c) => c !== code));
+        setLinksError("Couldn't delete link.");
+        return;
+      }
       setTimeout(() => {
         setLinks((rows) => (rows ? rows.filter((r) => r.code !== code) : rows));
-        setRemovingCodes((prev) => prev.filter((c) => c !== code));
+        setExitingCodes((prev) => prev.filter((c) => c !== code));
       }, 200);
-    } else {
-      saveDismissedCode(code);
-      setTimeout(() => {
-        setDismissedCodes((prev) => [...prev, code]);
-        setRemovingCodes((prev) => prev.filter((c) => c !== code));
-      }, 200);
+    } catch {
+      setExitingCodes((prev) => prev.filter((c) => c !== code));
+      setLinksError("Couldn't delete link — check your connection.");
     }
   }
 
@@ -565,7 +577,11 @@ export default function Home() {
           <h2 className="text-[12px] tracking-[0.12em] text-muted-foreground">
             {"// RECENTLY PRINTED"}
           </h2>
-          {linksError && <p className="text-[14px] text-error">{linksError}</p>}
+          {linksError && (
+            <p role="alert" className="text-[14px] text-error">
+              {linksError}
+            </p>
+          )}
           {!linksError && links === null && (
             <ul className="flex flex-col">
               {[0, 1, 2].map((i) => (
@@ -584,10 +600,10 @@ export default function Home() {
               : null;
             return (
               <>
-                {!linksError && visibleLinks !== null && visibleLinks.length === 0 && (
+                {visibleLinks !== null && visibleLinks.length === 0 && (
                   <p className="text-[14px] text-muted-foreground">{EMPTY_TAPE}</p>
                 )}
-                {!linksError && visibleLinks !== null && visibleLinks.length > 0 && (
+                {visibleLinks !== null && visibleLinks.length > 0 && (
                   <ul className="flex flex-col">
                     {visibleLinks.map((link) => (
                       <TapeRow
@@ -596,8 +612,9 @@ export default function Home() {
                         isOwner={Boolean(
                           session?.user?.id && link.ownerId === session.user.id
                         )}
-                        onRemove={onRemove}
-                        isRemoving={removingCodes.includes(link.code)}
+                        onDismiss={onDismiss}
+                        onDelete={onDelete}
+                        isExiting={exitingCodes.includes(link.code)}
                       />
                     ))}
                   </ul>

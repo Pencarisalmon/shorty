@@ -447,6 +447,60 @@ test.describe("home page", () => {
     expect(deleteRequested).toBe(true);
   });
 
+  test("failed owner deletion rolls back optimistic removal and displays error", async ({
+    page,
+  }) => {
+    const USER = {
+      id: "u_owner_fail",
+      name: "OwnerFail",
+      email: "ownerfail@example.com",
+      emailVerified: true,
+      image: null,
+      createdAt: "2026-08-01T00:00:00.000Z",
+      updatedAt: "2026-08-01T00:00:00.000Z",
+    };
+    const SESSION = {
+      id: "s_owner_fail",
+      token: "tok_owner_fail",
+      userId: USER.id,
+      expiresAt: "2027-08-01T00:00:00.000Z",
+      createdAt: "2026-08-01T00:00:00.000Z",
+      updatedAt: "2026-08-01T00:00:00.000Z",
+    };
+    await page.route("**/api/auth/get-session", (route) =>
+      route.fulfill({ json: { session: SESSION, user: USER } })
+    );
+
+    await page.route("**/api/links", (route) =>
+      route.fulfill({
+        json: {
+          links: [
+            {
+              code: "FailDel",
+              url: "https://example.com/fail-del",
+              shortUrl: "http://localhost:3000/FailDel",
+              createdAt: "2026-08-12T07:00:00.000Z",
+              ownerId: USER.id,
+            },
+          ],
+        },
+      })
+    );
+
+    await page.route("**/api/links/FailDel", (route) =>
+      route.fulfill({ status: 500, json: { error: "Server error" } })
+    );
+
+    await page.goto("/");
+    const region = page.getByRole("region", { name: "Recent short links" });
+    const deleteBtn = region.getByRole("button", { name: "Delete FailDel" });
+    await deleteBtn.click();
+
+    // After failure response, item is restored and error message is displayed
+    await expect(region.getByText("FailDel")).toBeVisible();
+    await expect(page.getByText("Couldn't delete link.")).toBeVisible();
+  });
+
   test("signed-in non-owner sees dismiss action and dismisses locally without calling delete API", async ({
     page,
   }) => {
