@@ -68,6 +68,27 @@ function formatTime(iso: string): string {
     .toLowerCase();
 }
 
+function ClipboardIcon({ className = "size-3.5" }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <rect width="14" height="14" x="5" y="7" rx="0" ry="0" />
+      <path d="M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3" />
+      <line x1="9" y1="12" x2="15" y2="12" />
+      <line x1="9" y1="16" x2="13" y2="16" />
+    </svg>
+  );
+}
+
 function CopyIcon({ className = "size-3.5" }: { className?: string }) {
   return (
     <svg
@@ -418,9 +439,17 @@ export default function Home() {
     <div className="min-h-svh bg-paper">
       <div className="mx-auto flex w-full max-w-[680px] flex-col px-5 pb-[100px] pt-7">
         <h1 className="sr-only">Shorty — receipt printer for the web</h1>
-        <header className="mb-[22px] flex flex-wrap items-baseline justify-between gap-3 border-b-[3px] border-ink pb-[10px] text-[13px]">
+        <header className="mb-[22px] flex flex-wrap items-center justify-between gap-y-1.5 gap-x-3 border-b-[3px] border-ink pb-[10px] text-[13px]">
           <p className="text-[20px] font-bold tracking-[0.12em]">SHORTY</p>
-          <p className="text-muted-foreground tracking-[0.04em]">
+          {!session?.user && (
+            <Link
+              href="/sign-in"
+              className="order-1 h-auto shrink-0 cursor-pointer rounded-none border-2 border-ink bg-white px-[10px] py-[6px] text-[12px] font-bold tracking-[0.08em] text-ink shadow-[2px_2px_0_0_var(--ink)] transition-colors hover:bg-ink hover:text-paper focus-visible:outline-2 focus-visible:outline-stamp focus-visible:outline-offset-1 min-[560px]:order-2"
+            >
+              SIGN IN
+            </Link>
+          )}
+          <p className="order-2 w-full text-muted-foreground tracking-[0.04em] max-[560px]:text-[12px] min-[560px]:order-1 min-[560px]:w-auto min-[560px]:mr-auto">
             receipt printer for the web
           </p>
         </header>
@@ -472,9 +501,11 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={() => void onPaste()}
-                    className="cursor-pointer rounded-none border border-ink bg-white px-2 py-1 text-[11px] font-bold tracking-[0.08em] text-ink shadow-[1px_1px_0_0_var(--ink)] transition-colors hover:bg-ink hover:text-paper focus-visible:outline-2 focus-visible:outline-stamp"
+                    title="Paste from clipboard"
+                    className="flex cursor-pointer items-center gap-1.5 rounded-none border border-ink bg-white px-2 py-1 text-[11px] font-bold tracking-[0.08em] text-ink shadow-[1px_1px_0_0_var(--ink)] transition-colors hover:bg-ink hover:text-paper focus-visible:outline-2 focus-visible:outline-stamp focus-visible:outline-offset-1"
                   >
-                    PASTE
+                    <ClipboardIcon className="size-3" />
+                    <span>PASTE</span>
                   </button>
                 ) : (
                   <button
@@ -482,7 +513,7 @@ export default function Home() {
                     onClick={onClear}
                     aria-label="Clear target URL"
                     title="Clear"
-                    className="flex size-6 cursor-pointer items-center justify-center rounded-none border border-ink bg-white text-[12px] font-bold text-ink shadow-[1px_1px_0_0_var(--ink)] transition-colors hover:bg-ink hover:text-paper focus-visible:outline-2 focus-visible:outline-stamp"
+                    className="flex size-6 cursor-pointer items-center justify-center rounded-none border border-ink bg-white text-[12px] font-bold text-ink shadow-[1px_1px_0_0_var(--ink)] transition-colors hover:bg-ink hover:text-paper focus-visible:outline-2 focus-visible:outline-stamp focus-visible:outline-offset-1"
                   >
                     <span aria-hidden="true">✕</span>
                   </button>

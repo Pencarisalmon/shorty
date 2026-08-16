@@ -22,6 +22,54 @@ test.describe("home page", () => {
     ).toBeVisible();
   });
 
+  test("header displays persistent [ SIGN IN ] button for unauthenticated visitors that links to /sign-in", async ({
+    page,
+  }) => {
+    await page.route("**/api/auth/get-session", (route) =>
+      route.fulfill({ json: { session: null, user: null } })
+    );
+    await page.goto("/");
+    const signInLink = page.getByRole("link", { name: "SIGN IN" });
+    await expect(signInLink).toBeVisible();
+    await expect(signInLink).toHaveAttribute("href", "/sign-in");
+  });
+
+  test("header hides [ SIGN IN ] button when visitor is signed in and displays signed in strip with SIGN OUT", async ({
+    page,
+  }) => {
+    const USER = {
+      id: "u_header_test",
+      name: "HeaderUser",
+      email: "header@example.com",
+      emailVerified: true,
+      image: null,
+      createdAt: "2026-08-01T00:00:00.000Z",
+      updatedAt: "2026-08-01T00:00:00.000Z",
+    };
+    const SESSION = {
+      id: "s_header_test",
+      token: "tok_header",
+      userId: USER.id,
+      expiresAt: "2027-08-01T00:00:00.000Z",
+      createdAt: "2026-08-01T00:00:00.000Z",
+      updatedAt: "2026-08-01T00:00:00.000Z",
+    };
+    await page.route("**/api/auth/get-session", (route) =>
+      route.fulfill({ json: { session: SESSION, user: USER } })
+    );
+    await page.goto("/");
+    await expect(page.getByRole("link", { name: "SIGN IN" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "SIGN OUT" })).toBeVisible();
+    await expect(page.getByText("signed in as")).toContainText("header@example.com");
+  });
+
+  test("PASTE button contains a tactile clipboard icon (svg)", async ({ page }) => {
+    await page.goto("/");
+    const pasteBtn = page.getByRole("button", { name: "PASTE" });
+    await expect(pasteBtn).toBeVisible();
+    await expect(pasteBtn.locator("svg")).toBeVisible();
+  });
+
   test("target URL input automatically receives focus when page loads", async ({
     page,
   }) => {
@@ -733,6 +781,37 @@ test.describe("home page", () => {
 
   test.describe("mobile (360px)", () => {
     test.use({ viewport: { width: 360, height: 800 } });
+
+    test("header layout wraps cleanly on narrow screens so logo and [ SIGN IN ] button share the top row without collision", async ({
+      page,
+    }) => {
+      await page.route("**/api/auth/get-session", (route) =>
+        route.fulfill({ json: { session: null, user: null } })
+      );
+      await page.goto("/");
+      const logo = page.locator("header p", { hasText: "SHORTY" });
+      const signInBtn = page.getByRole("link", { name: "SIGN IN" });
+      const subtitle = page.locator("header").getByText("receipt printer for the web");
+
+      await expect(logo).toBeVisible();
+      await expect(signInBtn).toBeVisible();
+      await expect(subtitle).toBeVisible();
+
+      const logoBox = await logo.boundingBox();
+      const signInBox = await signInBtn.boundingBox();
+      const subtitleBox = await subtitle.boundingBox();
+
+      expect(logoBox).not.toBeNull();
+      expect(signInBox).not.toBeNull();
+      expect(subtitleBox).not.toBeNull();
+
+      // Logo and SIGN IN share the top row (no collision, similar Y)
+      expect(logoBox!.x + logoBox!.width).toBeLessThan(signInBox!.x);
+      expect(Math.abs(logoBox!.y - signInBox!.y)).toBeLessThan(20);
+
+      // Subtitle wraps cleanly below the top row
+      expect(subtitleBox!.y).toBeGreaterThanOrEqual(logoBox!.y + logoBox!.height - 5);
+    });
 
     test("form stacks and the control is full width", async ({ page }) => {
       await page.goto("/");
