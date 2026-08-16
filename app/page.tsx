@@ -157,6 +157,7 @@ export default function Home() {
   const { data: session } = authClient.useSession();
   const [url, setUrl] = useState("");
   const [error, setError] = useState("");
+  const [pasteHint, setPasteHint] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [short, setShort] = useState<ShortResult | null>(null);
   const [justShortened, setJustShortened] = useState(false);
@@ -164,6 +165,7 @@ export default function Home() {
   const [links, setLinks] = useState<LinkRow[] | null>(null);
   const [linksError, setLinksError] = useState("");
   const [signOutError, setSignOutError] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let ignore = false;
@@ -188,11 +190,46 @@ export default function Home() {
 
   function onChangeUrl(value: string) {
     setUrl(value);
+    if (pasteHint) setPasteHint("");
     if (error) setError(validateUrl(value));
+  }
+
+  async function onPaste() {
+    try {
+      if (!navigator.clipboard?.readText) {
+        throw new Error("Clipboard read not supported");
+      }
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        onChangeUrl(text);
+      }
+    } catch {
+      const isMac =
+        typeof navigator !== "undefined" &&
+        /Mac|iPod|iPhone|iPad/.test(navigator.userAgent);
+      setPasteHint(isMac ? "Press ⌘V to paste" : "Press Ctrl+V to paste");
+    } finally {
+      inputRef.current?.focus();
+    }
+  }
+
+  function onClear() {
+    setUrl("");
+    setError("");
+    setPasteHint("");
+    inputRef.current?.focus();
+  }
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      onClear();
+    }
   }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setPasteHint("");
     const message = validateUrl(url);
     setError(message);
     if (message) return;
@@ -281,16 +318,42 @@ export default function Home() {
             <label htmlFor="target-url" className="sr-only">
               Target URL
             </label>
-            <Input
-              id="target-url"
-              type="text"
-              value={url}
-              onChange={(e) => onChangeUrl(e.target.value)}
-              placeholder="https://example.com/a-very-long-link"
-              aria-invalid={error ? true : undefined}
-              autoComplete="off"
-              className="h-auto flex-1 min-w-0 rounded-none border-2 border-ink bg-[#fdfdfb] px-[14px] py-3 text-[15px] shadow-[3px_3px_0_0_var(--ink)] placeholder:text-[#88887e] focus-visible:border-ink focus-visible:ring-0 focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-stamp focus-visible:outline-offset-1 aria-invalid:border-stamp aria-invalid:ring-0 max-[560px]:w-full md:text-[15px]"
-            />
+            <div className="relative flex min-w-0 flex-1 items-center max-[560px]:w-full">
+              <Input
+                ref={inputRef}
+                autoFocus
+                id="target-url"
+                type="text"
+                value={url}
+                onChange={(e) => onChangeUrl(e.target.value)}
+                onKeyDown={onKeyDown}
+                placeholder="https://example.com/a-very-long-link"
+                aria-invalid={error ? true : undefined}
+                autoComplete="off"
+                className="h-auto w-full min-w-0 rounded-none border-2 border-ink bg-[#fdfdfb] py-3 pl-[14px] pr-[72px] text-[15px] shadow-[3px_3px_0_0_var(--ink)] placeholder:text-[#88887e] focus-visible:border-ink focus-visible:ring-0 focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-stamp focus-visible:outline-offset-1 aria-invalid:border-stamp aria-invalid:ring-0 md:text-[15px]"
+              />
+              <div className="absolute right-[10px] top-1/2 flex -translate-y-1/2 items-center">
+                {!url ? (
+                  <button
+                    type="button"
+                    onClick={() => void onPaste()}
+                    className="cursor-pointer rounded-none border border-ink bg-white px-2 py-1 text-[11px] font-bold tracking-[0.08em] text-ink shadow-[1px_1px_0_0_var(--ink)] transition-colors hover:bg-ink hover:text-paper focus-visible:outline-2 focus-visible:outline-stamp"
+                  >
+                    PASTE
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={onClear}
+                    aria-label="Clear target URL"
+                    title="Clear"
+                    className="flex size-6 cursor-pointer items-center justify-center rounded-none border border-ink bg-white text-[12px] font-bold text-ink shadow-[1px_1px_0_0_var(--ink)] transition-colors hover:bg-ink hover:text-paper focus-visible:outline-2 focus-visible:outline-stamp"
+                  >
+                    <span aria-hidden="true">✕</span>
+                  </button>
+                )}
+              </div>
+            </div>
             <Button
               type="submit"
               disabled={submitting}
@@ -299,6 +362,14 @@ export default function Home() {
               {submitting ? "PRINTING…" : "SHORTEN"}
             </Button>
           </form>
+          {pasteHint && (
+            <p
+              role="status"
+              className="mx-[2px] mt-[8px] text-[12px] font-medium text-muted-foreground"
+            >
+              {pasteHint}
+            </p>
+          )}
           {error && (
             <p
               role="alert"

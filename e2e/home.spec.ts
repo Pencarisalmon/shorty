@@ -22,6 +22,115 @@ test.describe("home page", () => {
     ).toBeVisible();
   });
 
+  test("target URL input automatically receives focus when page loads", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const input = page.getByRole("textbox", { name: "Target URL" });
+    await expect(input).toBeFocused();
+  });
+
+  test("PASTE button appears inside target URL input when empty and disappears when text is present", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const pasteBtn = page.getByRole("button", { name: "PASTE" });
+    await expect(pasteBtn).toBeVisible();
+
+    const input = page.getByRole("textbox", { name: "Target URL" });
+    await input.fill("https://example.com/test");
+    await expect(pasteBtn).toHaveCount(0);
+  });
+
+  test("clicking PASTE reads the clipboard and populates the input", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await page.evaluate(() =>
+      navigator.clipboard.writeText("https://example.com/from-clipboard")
+    );
+    const pasteBtn = page.getByRole("button", { name: "PASTE" });
+    await pasteBtn.click();
+    const input = page.getByRole("textbox", { name: "Target URL" });
+    await expect(input).toHaveValue("https://example.com/from-clipboard");
+    await expect(page.getByRole("button", { name: "PASTE" })).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: /clear|✕/i })
+    ).toBeVisible();
+  });
+
+  test("clipboard read access denied or unavailable focuses input and shows keyboard hint", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await page.evaluate(() => {
+      navigator.clipboard.readText = () =>
+        Promise.reject(new Error("Permission denied"));
+    });
+    const pasteBtn = page.getByRole("button", { name: "PASTE" });
+    await pasteBtn.click();
+
+    const input = page.getByRole("textbox", { name: "Target URL" });
+    await expect(input).toBeFocused();
+    const hint = page.getByRole("status").filter({
+      hasText: /press (ctrl|cmd|⌘)\+v to paste/i,
+    });
+    await expect(hint).toBeVisible();
+
+    // Typing should dismiss the keyboard hint
+    await input.pressSequentially("https://example.com/typing");
+    await expect(hint).toHaveCount(0);
+  });
+
+  test("CLEAR (✕) button replaces paste action, resets input, dismisses errors, and retains focus", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const input = page.getByRole("textbox", { name: "Target URL" });
+    // Trigger an error first
+    await page.getByRole("button", { name: "SHORTEN" }).click();
+    const error = page
+      .getByRole("alert")
+      .filter({ hasText: "Paste a URL to shorten it." });
+    await expect(error).toBeVisible();
+
+    // Type invalid link
+    await input.fill("ftp://invalid");
+    const clearBtn = page.getByRole("button", { name: /clear|✕/i });
+    await expect(clearBtn).toBeVisible();
+    await expect(page.getByRole("button", { name: "PASTE" })).toHaveCount(0);
+
+    // Click CLEAR
+    await clearBtn.click();
+    await expect(input).toHaveValue("");
+    await expect(input).toBeFocused();
+    await expect(error).toHaveCount(0);
+    await expect(input).not.toHaveAttribute("aria-invalid", "true");
+    await expect(page.getByRole("button", { name: "PASTE" })).toBeVisible();
+  });
+
+  test("pressing Escape clears input value, dismisses errors, and retains focus", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const input = page.getByRole("textbox", { name: "Target URL" });
+    await input.fill("ftp://invalid-protocol");
+    await page.getByRole("button", { name: "SHORTEN" }).click();
+
+    const error = page.getByRole("alert").filter({
+      hasText: "That doesn't look like a valid link — it should start with http:// or https://.",
+    });
+    await expect(error).toBeVisible();
+
+    // Press Escape
+    await input.press("Escape");
+    await expect(input).toHaveValue("");
+    await expect(input).toBeFocused();
+    await expect(error).toHaveCount(0);
+    await expect(input).not.toHaveAttribute("aria-invalid", "true");
+    await expect(page.getByRole("button", { name: "PASTE" })).toBeVisible();
+  });
+
   test("empty submit shows the required message with a stamp-red border", async ({
     page,
   }) => {
