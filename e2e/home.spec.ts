@@ -100,20 +100,135 @@ test.describe("home page", () => {
     await expect(receipt).toContainText(code!);
   });
 
-  test("COPY flips to COPIED ✓ for two seconds", async ({ page }) => {
+  test("ticket copy button displays copy icon and COPY, writes short URL, and transitions to check icon and COPIED ✓", async ({
+    page,
+  }) => {
     await page.goto("/");
     await page
       .getByRole("textbox", { name: "Target URL" })
       .fill("https://example.com/e2e-copy");
     await page.getByRole("button", { name: "SHORTEN" }).click();
-    const copy = page.getByRole("button", { name: "COPY" });
+    const receipt = page.locator('section[aria-live="polite"]');
+    const copy = receipt.getByRole("button", { name: "COPY" });
+    await expect(copy).toBeVisible();
+    await expect(copy.locator("svg")).toBeVisible();
+
+    const openLink = receipt.getByRole("link", { name: "OPEN ↗" });
+    const href = await openLink.getAttribute("href");
+    expect(href).toBeTruthy();
+
     await copy.click();
-    await expect(
-      page.getByRole("button", { name: "COPIED ✓" })
-    ).toBeVisible();
-    await expect(page.getByRole("button", { name: "COPY" })).toBeVisible({
+    const clipboardText = await page.evaluate(() => navigator.clipboard.readText());
+    expect(clipboardText).toBe(href);
+
+    const copied = receipt.getByRole("button", { name: "COPIED ✓" });
+    await expect(copied).toBeVisible();
+    await expect(copied.locator("svg")).toBeVisible();
+    await expect(receipt.getByRole("button", { name: "COPY" })).toBeVisible({
       timeout: 4000,
     });
+  });
+
+  test("ticket copy handles clipboard write rejection gracefully", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await page
+      .getByRole("textbox", { name: "Target URL" })
+      .fill("https://example.com/e2e-copy-fail");
+    await page.getByRole("button", { name: "SHORTEN" }).click();
+    await page.evaluate(() => {
+      navigator.clipboard.writeText = () =>
+        Promise.reject(new Error("Clipboard write failure"));
+    });
+    const receipt = page.locator('section[aria-live="polite"]');
+    const copy = receipt.getByRole("button", { name: "COPY" });
+    await copy.click();
+    // Verify UI didn't crash and copy button is still intact
+    await expect(copy).toBeVisible();
+  });
+
+  test("tape row has accessible copy button with icon, copies full short URL, and triggers 2s success independently", async ({
+    page,
+  }) => {
+    const row1 = {
+      code: "Code01",
+      url: "https://example.com/first-target",
+      shortUrl: "http://localhost:3000/Code01",
+      createdAt: "2026-08-12T07:00:00.000Z",
+    };
+    const row2 = {
+      code: "Code02",
+      url: "https://example.com/second-target",
+      shortUrl: "http://localhost:3000/Code02",
+      createdAt: "2026-08-12T07:05:00.000Z",
+    };
+    await page.route("**/api/links", (route) =>
+      route.fulfill({
+        json: {
+          links: [row1, row2],
+        },
+      })
+    );
+    await page.goto("/");
+    const rows = page
+      .getByRole("region", { name: "Recent short links" })
+      .getByRole("listitem");
+    await expect(rows).toHaveCount(2);
+
+    const firstRow = rows.nth(0);
+    const secondRow = rows.nth(1);
+
+    const firstCopyBtn = firstRow.getByRole("button", { name: /copy/i });
+    const secondCopyBtn = secondRow.getByRole("button", { name: /copy/i });
+
+    await expect(firstCopyBtn).toBeVisible();
+    await expect(firstCopyBtn.locator("svg")).toBeVisible();
+    await expect(secondCopyBtn).toBeVisible();
+
+    // Click first row copy
+    await firstCopyBtn.click();
+    const clipboardText = await page.evaluate(() => navigator.clipboard.readText());
+    expect(clipboardText).toBe(row1.shortUrl);
+
+    // First row should show success state (e.g. copied label or check icon), second row remains unchanged
+    await expect(firstRow.getByRole("button", { name: /copied/i })).toBeVisible();
+    await expect(secondRow.getByRole("button", { name: /copy/i })).toBeVisible();
+    await expect(secondRow.getByRole("button", { name: /copied/i })).toHaveCount(0);
+
+    // After 2 seconds, first row reverts to normal copy state
+    await expect(firstRow.getByRole("button", { name: /^copy/i })).toBeVisible({
+      timeout: 4000,
+    });
+  });
+
+  test("tape row copy handles clipboard write rejection gracefully", async ({
+    page,
+  }) => {
+    await page.route("**/api/links", (route) =>
+      route.fulfill({
+        json: {
+          links: [
+            {
+              code: "Code01",
+              url: "https://example.com/target",
+              shortUrl: "http://localhost:3000/Code01",
+              createdAt: "2026-08-12T07:00:00.000Z",
+            },
+          ],
+        },
+      })
+    );
+    await page.goto("/");
+    await page.evaluate(() => {
+      navigator.clipboard.writeText = () =>
+        Promise.reject(new Error("Clipboard write failure"));
+    });
+    const copyBtn = page
+      .getByRole("region", { name: "Recent short links" })
+      .getByRole("button", { name: /copy/i });
+    await copyBtn.click();
+    await expect(copyBtn).toBeVisible();
   });
 
   test("tape shows dashed skeleton rows while loading", async ({ page }) => {

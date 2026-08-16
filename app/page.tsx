@@ -39,6 +39,120 @@ function formatTime(iso: string): string {
     .toLowerCase();
 }
 
+function CopyIcon({ className = "size-3.5" }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <rect width="14" height="14" x="8" y="8" rx="0" ry="0" />
+      <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+    </svg>
+  );
+}
+
+function CheckIcon({ className = "size-3.5" }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+function useCopy(timeoutMs = 2000) {
+  const [copied, setCopied] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  const copy = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setCopied(false), timeoutMs);
+    } catch {
+      // Graceful clipboard failure handling
+    }
+  };
+
+  return [copied, copy] as const;
+}
+
+function TapeRow({ link }: { link: LinkRow }) {
+  const [copied, copy] = useCopy();
+
+  return (
+    <li
+      className="grid grid-cols-[64px_1fr_auto] items-center gap-x-3 border-t border-dashed border-line py-3 min-[560px]:grid-cols-[74px_1fr_auto]"
+    >
+      <a
+        href={link.shortUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="truncate text-[14px] font-bold text-stamp underline-offset-4 hover:underline"
+      >
+        {link.code}
+      </a>
+      <a
+        href={link.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="truncate text-[14px] underline-offset-4 hover:underline"
+        title={link.url}
+      >
+        {link.url}
+      </a>
+      <div className="flex items-center gap-2">
+        <time
+          dateTime={link.createdAt}
+          className="text-[12px] text-muted-foreground"
+        >
+          {formatTime(link.createdAt)}
+        </time>
+        <button
+          type="button"
+          onClick={() => void copy(link.shortUrl)}
+          aria-label={copied ? `Copied ${link.code}` : `Copy ${link.code}`}
+          title={copied ? "Copied!" : `Copy ${link.shortUrl}`}
+          className={`flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-none border border-ink bg-white text-ink shadow-[1px_1px_0_0_var(--ink)] transition-colors hover:bg-ink hover:text-paper focus-visible:outline-2 focus-visible:outline-stamp focus-visible:outline-offset-1 ${
+            copied
+              ? "border-stamp bg-white text-stamp shadow-[1px_1px_0_0_var(--stamp)] hover:bg-white hover:text-stamp"
+              : ""
+          }`}
+        >
+          {copied ? (
+            <CheckIcon className="size-3.5" />
+          ) : (
+            <CopyIcon className="size-3.5" />
+          )}
+        </button>
+      </div>
+    </li>
+  );
+}
+
 export default function Home() {
   const { data: session } = authClient.useSession();
   const [url, setUrl] = useState("");
@@ -46,8 +160,7 @@ export default function Home() {
   const [submitting, setSubmitting] = useState(false);
   const [short, setShort] = useState<ShortResult | null>(null);
   const [justShortened, setJustShortened] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [copied, copy] = useCopy();
   const [links, setLinks] = useState<LinkRow[] | null>(null);
   const [linksError, setLinksError] = useState("");
   const [signOutError, setSignOutError] = useState("");
@@ -117,15 +230,6 @@ export default function Home() {
     } finally {
       setSubmitting(false);
     }
-  }
-
-  function onCopy() {
-    if (!short) return;
-    navigator.clipboard.writeText(short.shortUrl).then(() => {
-      setCopied(true);
-      if (copyTimer.current) clearTimeout(copyTimer.current);
-      copyTimer.current = setTimeout(() => setCopied(false), 2000);
-    });
   }
 
   async function onSignOut() {
@@ -220,10 +324,22 @@ export default function Home() {
                 </p>
                 <Button
                   type="button"
-                  onClick={onCopy}
-                  className="h-auto shrink-0 rounded-none border-2 border-ink bg-white px-[10px] py-[6px] text-[12px] font-bold tracking-[0.08em] text-ink shadow-[2px_2px_0_0_var(--ink)] hover:bg-primary/80 hover:text-paper"
+                  onClick={() => {
+                    if (short) void copy(short.shortUrl);
+                  }}
+                  className="flex h-auto shrink-0 cursor-pointer items-center gap-1.5 rounded-none border-2 border-ink bg-white px-[10px] py-[6px] text-[12px] font-bold tracking-[0.08em] text-ink shadow-[2px_2px_0_0_var(--ink)] hover:bg-primary/80 hover:text-paper"
                 >
-                  {copied ? "COPIED ✓" : "COPY"}
+                  {copied ? (
+                    <>
+                      <CheckIcon className="size-3.5" />
+                      <span>COPIED ✓</span>
+                    </>
+                  ) : (
+                    <>
+                      <CopyIcon className="size-3.5" />
+                      <span>COPY</span>
+                    </>
+                  )}
                 </Button>
               </div>
               <a
@@ -259,12 +375,12 @@ export default function Home() {
           {!linksError && links === null && (
             <ul className="flex flex-col">
               {[0, 1, 2].map((i) => (
-<li
-                    key={i}
-                    className="border-t border-dashed border-line py-3"
-                  >
-                    <div className="h-[16px] w-3/5 border border-dashed border-line bg-stripe" />
-                  </li>
+                <li
+                  key={i}
+                  className="border-t border-dashed border-line py-3"
+                >
+                  <div className="h-[16px] w-3/5 border border-dashed border-line bg-stripe" />
+                </li>
               ))}
             </ul>
           )}
@@ -274,34 +390,7 @@ export default function Home() {
           {!linksError && links !== null && links.length > 0 && (
             <ul className="flex flex-col">
               {links.map((link) => (
-                <li
-                  key={link.code}
-                  className="grid grid-cols-[64px_1fr_auto] items-center gap-x-3 border-t border-dashed border-line py-3 min-[560px]:grid-cols-[74px_1fr_auto]"
-                >
-                  <a
-                    href={link.shortUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="truncate text-[14px] font-bold text-stamp underline-offset-4 hover:underline"
-                  >
-                    {link.code}
-                  </a>
-                  <a
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="truncate text-[14px] underline-offset-4 hover:underline"
-                    title={link.url}
-                  >
-                    {link.url}
-                  </a>
-                  <time
-                    dateTime={link.createdAt}
-                    className="text-[12px] text-muted-foreground"
-                  >
-                    {formatTime(link.createdAt)}
-                  </time>
-                </li>
+                <TapeRow key={link.code} link={link} />
               ))}
             </ul>
           )}

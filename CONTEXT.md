@@ -31,3 +31,16 @@ _Avoid_: OTP, code, verification code
 **Session**:
 The signed-in state stored server-side, carried by an httpOnly cookie; slides on use up to a 90-day absolute cap.
 _Avoid_: JWT, token, login state
+
+**Tape**:
+The chronological stream of printed receipts / recent short links displayed on the home page.
+_Avoid_: Feed, history, link list
+
+**Dismiss**:
+The act of removing a receipt from a visitor's local tape view without deleting the link from the database.
+_Avoid_: Hide, clear item
+
+**Delete**:
+The act of permanently removing a short link from the database, permitted only to the link's owner.
+_Avoid_: Remove, destroy, purge
+
