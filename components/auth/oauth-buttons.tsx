@@ -53,11 +53,14 @@ export function OAuthButtons() {
     setError("");
     setBusy(provider);
     try {
-      await authClient.signIn.social({
+      const res = await authClient.signIn.social({
         provider,
         callbackURL: "/",
         errorCallbackURL: "/sign-in",
       });
+      if (res?.error) {
+        setError(res.error.message ?? FAILED_MSG);
+      }
     } catch {
       setError(FAILED_MSG);
     } finally {
@@ -81,9 +84,12 @@ export function OAuthButtons() {
         </button>
       ))}
       {error && (
-        <p role="alert" className="mx-[2px] text-[12px] font-bold text-error">
-          {error}
-        </p>
+        <div
+          role="alert"
+          className="p-2.5 border-2 border-stamp bg-stamp/10 text-stamp text-[12px] font-bold tracking-tight"
+        >
+          [!] {error}
+        </div>
       )}
     </div>
   );

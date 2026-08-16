@@ -171,8 +171,8 @@ export function AuthVoucher({ mode }: { mode: AuthMode }) {
                   <OAuthButtons />
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-dashed border-line text-[10px] text-muted-foreground">
-                  ⚡ No code entry needed for express sign-in
+                <div className="mt-4 pt-3 border-t border-dashed border-line text-[10px] font-mono text-muted-foreground">
+                  ⚡ No one-time code needed for express sign-in
                 </div>
               </div>
 
