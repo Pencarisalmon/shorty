@@ -10,6 +10,7 @@ export async function GET(request: Request) {
       url: link.url,
       shortUrl: `${base}/${link.code}`,
       createdAt: link.createdAt.toISOString(),
+      ownerId: link.ownerId,
     })),
   });
 }

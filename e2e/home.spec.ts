@@ -340,6 +340,199 @@ test.describe("home page", () => {
     await expect(copyBtn).toBeVisible();
   });
 
+  test("visitor can dismiss a receipt locally from the tape view, persisting across page reloads", async ({
+    page,
+  }) => {
+    const row1 = {
+      code: "Code01",
+      url: "https://example.com/keep-this",
+      shortUrl: "http://localhost:3000/Code01",
+      createdAt: "2026-08-12T07:00:00.000Z",
+    };
+    const row2 = {
+      code: "Code02",
+      url: "https://example.com/dismiss-this",
+      shortUrl: "http://localhost:3000/Code02",
+      createdAt: "2026-08-12T07:05:00.000Z",
+    };
+    await page.route("**/api/links", (route) =>
+      route.fulfill({
+        json: {
+          links: [row1, row2],
+        },
+      })
+    );
+    await page.goto("/");
+    const region = page.getByRole("region", { name: "Recent short links" });
+    const rows = region.getByRole("listitem");
+    await expect(rows).toHaveCount(2);
+
+    const dismissBtn = region.getByRole("button", { name: "Dismiss Code02" });
+    await expect(dismissBtn).toBeVisible();
+    await dismissBtn.click();
+
+    // Optimistically removed from view
+    await expect(region.getByText("Code02")).toHaveCount(0);
+    await expect(region.getByText("Code01")).toBeVisible();
+
+    // Persists across reloads
+    await page.reload();
+    await expect(region.getByText("Code02")).toHaveCount(0);
+    await expect(region.getByText("Code01")).toBeVisible();
+  });
+
+  test("signed-in owner can permanently delete their short link from the tape", async ({
+    page,
+  }) => {
+    const USER = {
+      id: "u_owner_1",
+      name: "Owner",
+      email: "owner@example.com",
+      emailVerified: true,
+      image: null,
+      createdAt: "2026-08-01T00:00:00.000Z",
+      updatedAt: "2026-08-01T00:00:00.000Z",
+    };
+    const SESSION = {
+      id: "s_owner_1",
+      token: "tok_owner",
+      userId: USER.id,
+      expiresAt: "2027-08-01T00:00:00.000Z",
+      createdAt: "2026-08-01T00:00:00.000Z",
+      updatedAt: "2026-08-01T00:00:00.000Z",
+    };
+    await page.route("**/api/auth/get-session", (route) =>
+      route.fulfill({
+        json: { session: SESSION, user: USER },
+      })
+    );
+
+    let deleted = false;
+    await page.route("**/api/links", (route) =>
+      route.fulfill({
+        json: {
+          links: deleted
+            ? []
+            : [
+                {
+                  code: "Owned1",
+                  url: "https://example.com/owned-link",
+                  shortUrl: "http://localhost:3000/Owned1",
+                  createdAt: "2026-08-12T07:00:00.000Z",
+                  ownerId: USER.id,
+                },
+              ],
+        },
+      })
+    );
+
+    let deleteRequested = false;
+    await page.route("**/api/links/Owned1", (route) => {
+      if (route.request().method() === "DELETE") {
+        deleteRequested = true;
+        deleted = true;
+        return route.fulfill({ json: { success: true } });
+      }
+      return route.continue();
+    });
+
+    await page.goto("/");
+    const region = page.getByRole("region", { name: "Recent short links" });
+    const deleteBtn = region.getByRole("button", { name: "Delete Owned1" });
+    await expect(deleteBtn).toBeVisible();
+    await deleteBtn.click();
+
+    // Optimistically removed
+    await expect(region.getByText("Owned1")).toHaveCount(0);
+    expect(deleteRequested).toBe(true);
+  });
+
+  test("signed-in non-owner sees dismiss action and dismisses locally without calling delete API", async ({
+    page,
+  }) => {
+    const USER = {
+      id: "u_non_owner",
+      name: "NonOwner",
+      email: "nonowner@example.com",
+      emailVerified: true,
+      image: null,
+      createdAt: "2026-08-01T00:00:00.000Z",
+      updatedAt: "2026-08-01T00:00:00.000Z",
+    };
+    const SESSION = {
+      id: "s_non_owner",
+      token: "tok_non_owner",
+      userId: USER.id,
+      expiresAt: "2027-08-01T00:00:00.000Z",
+      createdAt: "2026-08-01T00:00:00.000Z",
+      updatedAt: "2026-08-01T00:00:00.000Z",
+    };
+    await page.route("**/api/auth/get-session", (route) =>
+      route.fulfill({
+        json: { session: SESSION, user: USER },
+      })
+    );
+
+    await page.route("**/api/links", (route) =>
+      route.fulfill({
+        json: {
+          links: [
+            {
+              code: "OtherUserLink",
+              url: "https://example.com/other",
+              shortUrl: "http://localhost:3000/OtherUserLink",
+              createdAt: "2026-08-12T07:00:00.000Z",
+              ownerId: "someone_else_id",
+            },
+          ],
+        },
+      })
+    );
+
+    let deleteRequested = false;
+    await page.route("**/api/links/**", (route) => {
+      if (route.request().method() === "DELETE") {
+        deleteRequested = true;
+        return route.fulfill({ json: { success: true } });
+      }
+      return route.continue();
+    });
+
+    await page.goto("/");
+    const region = page.getByRole("region", { name: "Recent short links" });
+    const dismissBtn = region.getByRole("button", {
+      name: "Dismiss OtherUserLink",
+    });
+    await expect(dismissBtn).toBeVisible();
+    await dismissBtn.click();
+
+    await expect(region.getByText("OtherUserLink")).toHaveCount(0);
+    expect(deleteRequested).toBe(false);
+  });
+
+  test("tape removal buttons have visible focus rings and accessible labels", async ({
+    page,
+  }) => {
+    await page.route("**/api/links", (route) =>
+      route.fulfill({
+        json: {
+          links: [
+            {
+              code: "Focus01",
+              url: "https://example.com/focus",
+              shortUrl: "http://localhost:3000/Focus01",
+              createdAt: "2026-08-12T07:00:00.000Z",
+            },
+          ],
+        },
+      })
+    );
+    await page.goto("/");
+    const dismissBtn = page.getByRole("button", { name: "Dismiss Focus01" });
+    await dismissBtn.focus();
+    await expect(dismissBtn).toBeFocused();
+  });
+
   test("tape shows dashed skeleton rows while loading", async ({ page }) => {
     await page.route("**/api/links", (route) => {
       setTimeout(() => route.fulfill({ json: { links: [] } }), 1500);

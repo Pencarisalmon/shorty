@@ -12,12 +12,41 @@ type ShortResult = {
   shortUrl: string;
 };
 
-type LinkRow = ShortResult & { createdAt: string };
+type LinkRow = ShortResult & { createdAt: string; ownerId?: string | null };
 
 const EMPTY_MSG = "Paste a URL to shorten it.";
 const PROTOCOL_MSG =
   "That doesn't look like a valid link — it should start with http:// or https://.";
 const EMPTY_TAPE = "// no receipts yet — your first link prints here.";
+const DISMISSED_STORAGE_KEY = "shorty_dismissed_receipts";
+
+function getDismissedCodes(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(DISMISSED_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed.filter((item): item is string => typeof item === "string");
+    }
+  } catch {
+    // Ignore storage parse errors
+  }
+  return [];
+}
+
+function saveDismissedCode(code: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const current = getDismissedCodes();
+    if (!current.includes(code)) {
+      current.push(code);
+      localStorage.setItem(DISMISSED_STORAGE_KEY, JSON.stringify(current));
+    }
+  } catch {
+    // Ignore storage write errors
+  }
+}
 
 function validateUrl(raw: string): string {
   const value = raw.trim();
@@ -76,6 +105,45 @@ function CheckIcon({ className = "size-3.5" }: { className?: string }) {
   );
 }
 
+function DismissIcon({ className = "size-3.5" }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </svg>
+  );
+}
+
+function TrashIcon({ className = "size-3.5" }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M3 6h18" />
+      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+    </svg>
+  );
+}
+
 function useCopy(timeoutMs = 2000) {
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -100,12 +168,26 @@ function useCopy(timeoutMs = 2000) {
   return [copied, copy] as const;
 }
 
-function TapeRow({ link }: { link: LinkRow }) {
+function TapeRow({
+  link,
+  isOwner,
+  onRemove,
+  isRemoving,
+}: {
+  link: LinkRow;
+  isOwner: boolean;
+  onRemove: (code: string) => void;
+  isRemoving?: boolean;
+}) {
   const [copied, copy] = useCopy();
+  const removeLabel = isOwner ? `Delete ${link.code}` : `Dismiss ${link.code}`;
+  const removeTitle = isOwner ? "Delete" : "Dismiss";
 
   return (
     <li
-      className="grid grid-cols-[64px_1fr_auto] items-center gap-x-3 border-t border-dashed border-line py-3 min-[560px]:grid-cols-[74px_1fr_auto]"
+      className={`grid grid-cols-[64px_1fr_auto] items-center gap-x-3 border-t border-dashed border-line py-3 transition-all duration-200 ease-out motion-reduce:transition-none min-[560px]:grid-cols-[74px_1fr_auto] ${
+        isRemoving ? "pointer-events-none opacity-0 -translate-x-2" : ""
+      }`}
     >
       <a
         href={link.shortUrl}
@@ -148,6 +230,19 @@ function TapeRow({ link }: { link: LinkRow }) {
             <CopyIcon className="size-3.5" />
           )}
         </button>
+        <button
+          type="button"
+          onClick={() => onRemove(link.code)}
+          aria-label={removeLabel}
+          title={removeTitle}
+          className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-none border border-ink bg-white text-ink shadow-[1px_1px_0_0_var(--ink)] transition-colors hover:bg-ink hover:text-paper focus-visible:outline-2 focus-visible:outline-stamp focus-visible:outline-offset-1"
+        >
+          {isOwner ? (
+            <TrashIcon className="size-3.5" />
+          ) : (
+            <DismissIcon className="size-3.5" />
+          )}
+        </button>
       </div>
     </li>
   );
@@ -165,6 +260,8 @@ export default function Home() {
   const [links, setLinks] = useState<LinkRow[] | null>(null);
   const [linksError, setLinksError] = useState("");
   const [signOutError, setSignOutError] = useState("");
+  const [dismissedCodes, setDismissedCodes] = useState<string[]>(getDismissedCodes);
+  const [removingCodes, setRemovingCodes] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -187,6 +284,31 @@ export default function Home() {
       ignore = true;
     };
   }, []);
+
+  function onRemove(code: string) {
+    const target = links?.find((l) => l.code === code);
+    const isOwner = Boolean(
+      session?.user?.id && target?.ownerId === session.user.id
+    );
+
+    setRemovingCodes((prev) => [...prev, code]);
+
+    if (isOwner) {
+      fetch(`/api/links/${code}`, { method: "DELETE" }).catch(() => {
+        // Graceful network failure handling
+      });
+      setTimeout(() => {
+        setLinks((rows) => (rows ? rows.filter((r) => r.code !== code) : rows));
+        setRemovingCodes((prev) => prev.filter((c) => c !== code));
+      }, 200);
+    } else {
+      saveDismissedCode(code);
+      setTimeout(() => {
+        setDismissedCodes((prev) => [...prev, code]);
+        setRemovingCodes((prev) => prev.filter((c) => c !== code));
+      }, 200);
+    }
+  }
 
   function onChangeUrl(value: string) {
     setUrl(value);
@@ -256,6 +378,7 @@ export default function Home() {
                 url: url.trim(),
                 shortUrl: data.shortUrl,
                 createdAt: new Date().toISOString(),
+                ownerId: data.ownerId ?? session?.user?.id ?? null,
               },
               ...rows,
             ]
@@ -455,16 +578,33 @@ export default function Home() {
               ))}
             </ul>
           )}
-          {!linksError && links !== null && links.length === 0 && (
-            <p className="text-[14px] text-muted-foreground">{EMPTY_TAPE}</p>
-          )}
-          {!linksError && links !== null && links.length > 0 && (
-            <ul className="flex flex-col">
-              {links.map((link) => (
-                <TapeRow key={link.code} link={link} />
-              ))}
-            </ul>
-          )}
+          {(() => {
+            const visibleLinks = links
+              ? links.filter((l) => !dismissedCodes.includes(l.code))
+              : null;
+            return (
+              <>
+                {!linksError && visibleLinks !== null && visibleLinks.length === 0 && (
+                  <p className="text-[14px] text-muted-foreground">{EMPTY_TAPE}</p>
+                )}
+                {!linksError && visibleLinks !== null && visibleLinks.length > 0 && (
+                  <ul className="flex flex-col">
+                    {visibleLinks.map((link) => (
+                      <TapeRow
+                        key={link.code}
+                        link={link}
+                        isOwner={Boolean(
+                          session?.user?.id && link.ownerId === session.user.id
+                        )}
+                        onRemove={onRemove}
+                        isRemoving={removingCodes.includes(link.code)}
+                      />
+                    ))}
+                  </ul>
+                )}
+              </>
+            );
+          })()}
         </section>
       </div>
     </div>

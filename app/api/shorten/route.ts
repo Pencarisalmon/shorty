@@ -25,7 +25,7 @@ export async function POST(request: Request) {
   const link = await createShort(url.toString(), session?.user.id);
   const base = process.env.BASE_URL ?? new URL(request.url).origin;
   return NextResponse.json(
-    { code: link.code, shortUrl: `${base}/${link.code}` },
+    { code: link.code, shortUrl: `${base}/${link.code}`, ownerId: link.ownerId },
     { status: 201 }
   );
 }
