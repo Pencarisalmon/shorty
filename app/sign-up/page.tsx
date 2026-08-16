@@ -1,5 +1,5 @@
-import { AuthPrototypeShell } from "@/components/auth/prototype/auth-prototype-shell";
+import { OneTimeCodeForm } from "@/components/auth/one-time-code-form";
 
 export default function SignUpPage() {
-  return <AuthPrototypeShell mode="sign-up" />;
+  return <OneTimeCodeForm mode="sign-up" />;
 }
